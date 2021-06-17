@@ -180,7 +180,7 @@ def infer_model(model, dataloader, criterion, device="cpu"):
             end="\r",
         )
 
-    epoch_loss = running_loss / n_batches
+    epoch_loss = running_loss / len(dataloader)
     epoch_acc = running_corrects.double() / n_data
     # epoch_f1 =
     # print("\r\r")

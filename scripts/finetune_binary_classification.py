@@ -53,6 +53,7 @@ n_imgs = len(list(dir_dict["positives"].glob("*.jpg"))) + len(
     list(dir_dict["negatives"].glob("*.jpg"))
 )
 
+np.random.seed(42)
 rands = np.arange(n_imgs)
 np.random.shuffle(rands)
 trn_s = int(0.7 * n_imgs)
@@ -143,7 +144,7 @@ model_best = train_model(
     criterion,
     optimizer_ft,
     exp_lr_scheduler,
-    num_epochs=10,
+    num_epochs=5,
     device=device,
     model_dir=Path(f"{hub_dir}/vgg_cp_2/"),
 )

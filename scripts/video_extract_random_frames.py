@@ -14,8 +14,7 @@ import torch
 
 pref = ""
 
-# %%
-# print(f"is cuda: {torch.cuda.is_available()}, N GPU = {torch.cuda.device_count()}")
+# %% define function to count frames, but do not use it below. it doubles runtime.
 
 
 def count_frames(video_fold):
@@ -41,7 +40,7 @@ videos = list(vid_path.glob("*.AVI"))
 save_fold = Path(f"{pref}data/negative_frames/")
 save_fold.mkdir(exist_ok=True, parents=True)
 
-freq = 250
+freq = 75
 #  %%
 for video in videos[::]:
     cap = cv2.VideoCapture(str(video))
@@ -51,7 +50,7 @@ for video in videos[::]:
     vname = str(video).split("/")[-1][:-4]
 
     # n_frames = count_frames(video)
-    n_frames = 0
+    n_frames = 1
 
     print(f"{vname}:: number of frames = {n_frames}")
     # %
@@ -60,9 +59,9 @@ for video in videos[::]:
         if (cc % freq) == 0:
             cv2.imwrite(f"{save_fold}/{vname}_neg{cc}.jpg", frame)
             # if n_frames == 0:
-            #     print(cc)
+            print(f"\r{cc}", end="\r")
             # else:
-            #     print(f"{cc * 100 / n_frames:.2}%")
+            # print(f"\r{cc * 100 / n_frames:.2}%", end="\r")
         cc += 1
 
     cap.release()

@@ -35,8 +35,11 @@ torch.hub.set_dir(hub_dir)
 
 print(f"current torch hub directory: {torch.hub.get_dir()}")
 # %%
-
 BSIZE = 32
+
+## TODO: SPLIT TRN, VAL and TEST sets into subfolders to /data/, where each class has a folder. Eeasier maybe to group videos and everything. 
+# Split negatives based on videos (so no frames from same video appear into different learning sets)
+# Split positives based on location or camera ID based on interactions.csv
 
 dir_dict = {
     "positives": Path(f"{prefix}data/positive_frames"),
@@ -57,6 +60,7 @@ n_imgs = len(list(dir_dict["positives"].glob("*.jpg"))) + len(
     list(dir_dict["negatives"].glob("*.jpg"))
 )
 
+np.random.seed(42)
 rands = np.arange(n_imgs)
 np.random.shuffle(rands)
 trn_s = int(0.7 * n_imgs)
@@ -105,31 +109,45 @@ print(class_weights)
 # %% set up model for inference
 
 device = "cuda" if torch.cuda.is_available() else "cpu"
-model_dir = Path("/data/users/michele/hummingbird-classifier/models/vgg_cp")
+model_dir = Path("/data/users/michele/hummingbird-classifier/models/vgg_cp_2")
 
-model_pars = torch.load(model_dir / "model_pars.pt", map_location="cpu",)
-model_state = torch.load(model_dir / "model_state.pt", map_location="cpu",)
+model_pars = torch.load(model_dir / "model_pars_best.pt", map_location="cpu",)
+model_state = torch.load(model_dir / "model_state_best.pt", map_location="cpu",)
 
 model = model_pars
 model.load_state_dict(model_state)
 model.to(device)
 
 criterion = nn.CrossEntropyLoss(weight=class_weights.to(device),reduce="mean")
+
 yhat, probs, gt = infer_model(model, tst_loader, criterion, device=device)
-# %% 
+
 model.to("cpu")
 # %%
 denorm = Denormalize(mean=(0.485, 0.456, 0.406), std=(0.229, 0.224, 0.225))
 
-visualize_model(model, tst_loader, device=device, num_images=100, denormalize=denorm, save_folder=Path("../models/vgg_cp_2/somefigs/"))
+visualize_model(model, tst_loader, device="cpu", num_images=10, denormalize=denorm, save_folder=Path("../models/vgg_cp_2/somefigs/"))
 # %% 
+from sklearn.metrics import classification_report, confusion_matrix
 
-from sklearn.metrics import classification_report
-
+cm = confusion_matrix(gt, yhat)
 print(classification_report(gt, yhat))
+print(cm)
 # %%
+from sklearn.metrics import ConfusionMatrixDisplay
+
+disp = ConfusionMatrixDisplay(confusion_matrix=cm,
+                            display_labels=["No Bird", "Bird"])
+disp.plot()
+
+# %% 
 
 plt.figure()
-plt.plot(probs[:100,:])
+plt.scatter(range(100), probs[:100,0])
+plt.scatter(range(100), probs[:100,1])
+# plt.scatter(range(100), gt[:100]-1)
+plt.scatter(range(100), gt[:100])
+plt.hlines(y=0.5, xmin=0, xmax=100, color="gray")
+
 
 # %%
