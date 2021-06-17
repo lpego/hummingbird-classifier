@@ -42,7 +42,7 @@ save_fold.mkdir(exist_ok=True, parents=True)
 
 freq = 75
 #  %%
-for video in videos[::]:
+for i, video in enumerate(videos[::]):
     cap = cv2.VideoCapture(str(video))
     nofail, _ = cap.read()
     cc = 0
@@ -52,8 +52,8 @@ for video in videos[::]:
     # n_frames = count_frames(video)
     n_frames = 1
 
-    print(f"{vname}:: number of frames = {n_frames}")
-    # %
+    print(f"{vname} ({i+1}/{len(videos)}):: number of frames = {n_frames}")
+
     while nofail:
         nofail, frame = cap.read()
         if (cc % freq) == 0:

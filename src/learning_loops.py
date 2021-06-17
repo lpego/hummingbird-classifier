@@ -41,6 +41,7 @@ def train_model(
 
     best_model = copy.deepcopy(model.state_dict())
     best_acc = 0.0
+	track_learning = {"trn": {"loss": [], "accuracy": []}, "val": {"loss": [], "accuracy": []}}
 
     for epoch in range(num_epochs):
         print(f"Epoch {epoch+1}/{num_epochs}")
@@ -105,9 +106,10 @@ def train_model(
 
             epoch_loss = running_loss / n_batches
             epoch_acc = running_corrects.double() / n_data
-            print("\r")
-            print()
-            print(f"{phase} Loss: {epoch_loss:.4f} Acc: {epoch_acc:.4f}", end="\n")
+			track_learning[phase]["loss"] = epoch_loss
+			track_learning[phase]["accuracy"] = epoch_acc
+			
+            print(f"\r{phase} Loss: {epoch_loss:.4f} Acc: {epoch_acc:.4f}", end="\n")
 
             # deep copy the model
             if phase == "val":
@@ -132,7 +134,8 @@ def train_model(
 
     # load best model weights
     model.load_state_dict(best_model)
-    return model
+
+    return model, track_learning
 
 
 def infer_model(model, dataloader, criterion, device="cpu"):
@@ -231,9 +234,9 @@ def visualize_model(
 
                 im = inputs.cpu().data[j]
                 if denormalize:
-                    im = denormalize(im).permute((1, 2, 0))
-                else:
-                    im = im.permute((1, 2, 0))
+                    im = denormalize(im)
+
+                im = im.permute((1, 2, 0))
 
                 ax.imshow(im)
 
