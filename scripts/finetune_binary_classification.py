@@ -1,5 +1,5 @@
 # %%
-prefix = ""
+prefix = "../"
 
 # standard ecosystem
 import os, sys, time, copy
@@ -92,33 +92,50 @@ print(cl, clc)
 
 # loss functions
 class_weights = torch.Tensor(np.sum(clc) / (2 * clc)).float()
-# print(class_weights)
+print(class_weights)
 # %% set up model for pretraining
 
 device = "cuda" if torch.cuda.is_available() else "cpu"
 # device = "cpu"
 
-# model_ft = models.resnet18(pretrained=True)
-model = models.vgg16(pretrained=True)
+architecture = "ResNet"
+if architecture is "VGG":
+    model = models.vgg16(pretrained=True)
+
+    in_feat = model.classifier[-1].in_features
+
+    model.classifier[-1] = nn.Linear(in_features=in_feat, out_features=2, bias=True)
+
+    # Freeze base feature extraction trunk:
+    for param in model.features.parameters():
+        param.requires_grad = False
+
+    for param in model.classifier.parameters():
+        if np.any([a == 2 for a in param.shape]):
+            pass
+        else:
+            param.requires_grad = False
+
+elif architecture is "ResNet":
+
+    model = models.resnet18(pretrained=True)
+    model.fc = nn.Linear(in_features=model.fc.in_features, out_features=2, bias=True)
+
+    # Freeze base feature extraction trunk:
+    for param in model.parameters():
+        param.requires_grad = False
+
+    for param in model.fc.parameters():
+        param.requires_grad = True
+
+# print(model)
 
 # replace last linear layer of the classifier, change from 1000 classes to 2
 
-in_feat = model.classifier[-1].in_features
-model.classifier[-1] = nn.Linear(in_features=in_feat, out_features=2, bias=True)
-print(model)
 
 # Define Loss
 criterion = nn.CrossEntropyLoss(weight=class_weights.to(device), reduction="mean")
 
-# Freeze base feature extraction trunk:
-for param in model.features.parameters():
-    param.requires_grad = False
-
-for param in model.classifier.parameters():
-    if np.any([a == 2 for a in param.shape]):
-        pass
-    else:
-        param.requires_grad = False
 
 # Alternatively, associate them with a very low learning rate
 # 10e-2 is a scaler to the original lr.
@@ -138,15 +155,15 @@ if not prefix:
 
 
 # %% TRAIN
-model_best = train_model(
+model_best, track_learning = train_model(
     model,
     dataloaders,
     criterion,
     optimizer_ft,
     exp_lr_scheduler,
-    num_epochs=5,
+    num_epochs=10,
     device=device,
-    model_dir=Path(f"{hub_dir}/vgg_cp_2/"),
+    model_dir=Path(f"{hub_dir}/resnet18/"),
 )
 
 # %%

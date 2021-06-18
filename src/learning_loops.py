@@ -41,7 +41,10 @@ def train_model(
 
     best_model = copy.deepcopy(model.state_dict())
     best_acc = 0.0
-	track_learning = {"trn": {"loss": [], "accuracy": []}, "val": {"loss": [], "accuracy": []}}
+    track_learning = {
+        "trn": {"loss": [], "accuracy": []},
+        "val": {"loss": [], "accuracy": []},
+    }
 
     for epoch in range(num_epochs):
         print(f"Epoch {epoch+1}/{num_epochs}")
@@ -106,9 +109,9 @@ def train_model(
 
             epoch_loss = running_loss / n_batches
             epoch_acc = running_corrects.double() / n_data
-			track_learning[phase]["loss"] = epoch_loss
-			track_learning[phase]["accuracy"] = epoch_acc
-			
+            track_learning[phase]["loss"] = epoch_loss
+            track_learning[phase]["accuracy"] = epoch_acc
+
             print(f"\r{phase} Loss: {epoch_loss:.4f} Acc: {epoch_acc:.4f}", end="\n")
 
             # deep copy the model

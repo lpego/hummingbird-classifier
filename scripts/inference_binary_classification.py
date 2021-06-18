@@ -109,7 +109,7 @@ print(class_weights)
 # %% set up model for inference
 
 device = "cuda" if torch.cuda.is_available() else "cpu"
-model_dir = Path("/data/users/michele/hummingbird-classifier/models/vgg_cp_2")
+model_dir = Path("/data/users/michele/hummingbird-classifier/models/resnet18")
 
 model_pars = torch.load(model_dir / "model_pars_best.pt", map_location="cpu",)
 model_state = torch.load(model_dir / "model_state_best.pt", map_location="cpu",)
@@ -126,7 +126,7 @@ model.to("cpu")
 # %%
 denorm = Denormalize(mean=(0.485, 0.456, 0.406), std=(0.229, 0.224, 0.225))
 
-visualize_model(model, tst_loader, device="cpu", num_images=10, denormalize=denorm, save_folder=Path("../models/vgg_cp_2/somefigs/"))
+visualize_model(model, tst_loader, device="cpu", num_images=BSIZE, denormalize=denorm, save_folder=Path("../models/resnet18/somefigs/"))
 # %% 
 from sklearn.metrics import classification_report, confusion_matrix
 
@@ -148,6 +148,12 @@ plt.scatter(range(100), probs[:100,1])
 # plt.scatter(range(100), gt[:100]-1)
 plt.scatter(range(100), gt[:100])
 plt.hlines(y=0.5, xmin=0, xmax=100, color="gray")
+
+# %% 
+plt.figure()
+plt.hist(probs[:1000,0].ravel(), bins=20)#, density=True)
+plt.hist(probs[:1000,1].ravel(), bins=20)#, density=True)
+plt.vlines(x=0.5, ymin=0, ymax=1.5, color="gray")
 
 
 # %%
