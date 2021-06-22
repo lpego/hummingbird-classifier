@@ -141,7 +141,7 @@ criterion = nn.CrossEntropyLoss(weight=class_weights.to(device), reduction="mean
 # {"params": model.classifier.parameters(), "lr": 1},
 # ]
 
-optimizer_ft = optim.Adam(model.parameters(), lr=1e-4)  # , momentum=0.9)
+optimizer_ft = optim.Adam(model.parameters(), lr=1e-3)  # , momentum=0.9)
 
 # Decay LR by a factor of 0.1 every 7 epochs
 exp_lr_scheduler = lr_scheduler.MultiStepLR(optimizer_ft, milestones=[500], gamma=0.1)

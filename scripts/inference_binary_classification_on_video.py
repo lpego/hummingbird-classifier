@@ -1,6 +1,6 @@
 # %%
-%load_ext autoreload
-%autoreload 2
+# %load_ext autoreload
+# %autoreload 2
 
 # standard ecosystem
 import os, sys, time, copy
@@ -9,11 +9,12 @@ import pandas as pd
 from pathlib import Path
 from PIL import Image
 from tqdm import tqdm
+import datetime
 
 import ffmpeg
 import cv2
 
-prefix = "../"
+prefix = ""
 sys.path.append(f"{prefix}src")
 
 # torch imports
@@ -42,15 +43,15 @@ print(f"current torch hub directory: {torch.hub.get_dir()}")
 # 1) load video
 # 2) get frame, convert it to PIL
 # 3) apply preprocessing transorms
-# 4) loop through whole video and record per frame: 
+# 4) loop through whole video and record per frame:
 # 	- probs
 # 	- label
-# 	- frame number 
-# 	- ideally timestamp  
+# 	- frame number
+# 	- ideally timestamp
 
 # %% 0 - prepare model
 
-device =  "cuda" if torch.cuda.is_available() else "cpu"
+device = "cuda" if torch.cuda.is_available() else "cpu"
 
 model_folder = Path(f"{hub_dir}/vgg_newlearningsets/")
 save_pos_frames = model_folder / "extracted_video_frames"
@@ -62,15 +63,8 @@ model_state = torch.load(model_folder / "model_state_best.pt", map_location="cpu
 
 model = model_pars
 model.load_state_dict(model_state)
-model.to(device);
-
-
-# %% 1 - prepare video 
-# 
-video = Path("/data/shared/raw-video-import/data/RECODED_HummingbirdVideo/FH101_01.avi")
-
-probe = ffmpeg.probe(video)
-n_frames = int(probe["streams"][0]["nb_frames"])
+model.to(device)
+model.eval()
 
 augment = transforms.Compose(
     [
@@ -81,38 +75,100 @@ augment = transforms.Compose(
     ]
 )
 
-#%%
+# %% 1 - prepare video
 
-model.eval()
-frame_list = np.arange(n_frames)
+videos = list(
+    Path("/data/shared/raw-video-import/data/RECODED_HummingbirdVideo/").glob("*.avi")
+)
+videos.sort()
 
-cap = cv2.VideoCapture(str(video))
+SAVE_POSITIVES = False
+for iv, video in enumerate(videos[:2]):
+    # tqdm.write(f"{video.name}, {iv+1}/{len(videos)}")
+    # print()
+    save_frames = save_pos_frames / (str(video.name)[:-4])
+    save_frames.mkdir(exist_ok=True, parents=True)
 
-df = pd.DataFrame([], index=frame_list, columns=["predicted_class", "prob_0", "prob_1"])
+    probe = ffmpeg.probe(video)
+    n_frames = int(probe["streams"][0]["nb_frames"])
+    framerate = float(
+        eval(probe["streams"][0]["avg_frame_rate"])
+    )  # * float(eval(probe["streams"][0]["time_base"]))
+    duration_s = str(
+        datetime.timedelta(seconds=float(probe["streams"][0]["duration"]))
+    )[:-4]
+    # print(n_frames, length, framerate, duration_s)
 
-for ff in tqdm(frame_list):
-    # print(ff)
-    cap.set(1, ff)
-    _, frame = cap.read()
-    pframe = Image.fromarray(frame.astype('uint8'), 'RGB')
-    frame = augment(pframe).to(device)
+    # frame_list = np.arange(15000, 16000, 1)#n_frames)
+    frame_list = np.arange(0, n_frames, 2)
 
-    outputs = model(frame[None, ...])
-    proba = nn.Softmax(dim=1)(outputs).detach().squeeze()
-    _, preds = torch.max(outputs, 1)
+    cap = cv2.VideoCapture(str(video))
 
-    # print(proba, preds)
+    df = pd.DataFrame(
+        [],
+        index=frame_list,
+        columns=[
+            "frame_number",
+            "timestamp_video",
+            "predicted_class",
+            "prob_0",
+            "prob_1",
+        ],
+    )
 
-    df.iloc[ff,:].loc["predicted_class"] = preds.cpu().numpy().squeeze()
-    df.iloc[ff,:].loc["prob_0"] = proba[0].cpu().numpy()
-    df.iloc[ff,:].loc["prob_1"] = proba[1].cpu().numpy()
+    for i, ff in enumerate(
+        tqdm(frame_list, desc=f"{video.name}, {iv+1}/{len(videos)}")
+    ):
+        # print(ff)
+        cap.set(1, ff)
+        _, frame = cap.read()
+        pframe = Image.fromarray(frame.astype("uint8"), "RGB")
+        frame = augment(pframe).to(device)
 
-    if df.iloc[ff,:].loc["prob_1"] > 0.8:
-        pframe.save(save_pos_frames / (str(video.name)[:-4] + ".jpg"))
-        # plt.figure()
-        # plt.imshow(pframe)
+        outputs = model(frame[None, ...])
+        proba = nn.Softmax(dim=1)(outputs).detach().squeeze()
+        _, preds = torch.max(outputs, 1)
 
+        # print(proba, preds)
 
+        time = str(datetime.timedelta(seconds=ff * 1 / framerate))
+        df.iloc[i, :].loc["timestamp_video"] = time[:-5] + "/" + duration_s
+        df.iloc[i, :].loc["frame_number"] = ff
+        df.iloc[i, :].loc["predicted_class"] = preds.cpu().numpy().squeeze()
+        df.iloc[i, :].loc["prob_0"] = proba[0].cpu().numpy()
+        df.iloc[i, :].loc["prob_1"] = proba[1].cpu().numpy()
+
+        if SAVE_POSITIVES:
+            if df.iloc[i, :].loc["prob_1"] > 0.5:
+                pframe.save(save_frames / (str(ff) + ".jpg"))
+                # plt.figure()
+                # plt.imshow(pframe)
+
+    #  save DF
+    df.to_csv(save_frames / "summary.csv")
 # %%
-# df
+
+
+# frame_list = (-df[df.predicted_class == 1].prob_1).sort_values().index.astype(int)
+
+# cap = cv2.VideoCapture(str(video))
+
+# for ff in frame_list[:20]:
+#     # print(ff)
+#     cap.set(1, ff)
+#     _, frame = cap.read()
+#     pframe = Image.fromarray(frame.astype('uint8'), 'RGB')
+#     plt.figure()
+#     plt.title(f"{ff}, {df.loc[ff,'prob_1']:.2f}")
+#     plt.imshow(pframe)
+
+# # %%
+# plt.figure(figsize=(15,7))
+# plt.plot(df.iloc[15000:17000].prob_1)
+# # %%
+
+# im_1 = Image.open("/data/shared/hummingbird-classifier/models/vgg_newlearningsets/extracted_video_frames/FH101_01/15000.jpg").convert("RGB")
+# im_2 = Image.open("/data/shared/hummingbird-classifier/models/vgg_newlearningsets/extracted_video_frames/FH101_01/15066.jpg").convert("RGB")
+
+# plt.imshow(np.array(im_2) - np.array(im_1) + 125)
 # %%

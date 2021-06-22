@@ -184,12 +184,12 @@ for batch, (xb,yb) in enumerate(tst_loader):
 		if i == 3: 
 			break
 # %%
-cl = 0 
+cl = 0
 tst_sub = probs[gt==cl,1]
 labs = gt[gt==cl]
 sind = np.argsort(1-tst_sub)
 # possort = tst_positives[ii]
-xfiles = tst_hummingbirds.img_paths[gt==1]
+xfiles = tst_hummingbirds.img_paths[gt==cl]
 # xsort = xsort[ii]
 
 for i, ss in enumerate(sind): 
@@ -200,38 +200,6 @@ for i, ss in enumerate(sind):
 	plt.title(f"LABEL: {int(labs[i])}, 0: {probs[ss,0]:.4f} - 1: {probs[ss,1]:.4f}")
 	plt.imshow(img)
 
-	if i == 20: 
+	if i == 10: 
 		break
 # %%
-
-# ATTEMPT PERFRAME VIDEO INFERENCE
-# 1) load video
-# 2) get frame, convert it to PIL
-# 3) apply preprocessing transorms
-# 4) loop through whole video and record per frame: 
-# 	- probs
-# 	- label
-# 	- frame number 
-# 	- ideally timestamp  
-
-video_file = Path("/data/shared/raw-video-import/data/RECODED_HummingbirdVideo/FH101_01.avi")
-
-probe = ffmpeg.probe(video)
-n_frames = int(probe["streams"][0]["nb_frames"])
-
-#%%
-vname = str(video).split("/")[-1][:-4]
-
-frame_list = np.arange(n_frames)
-frame_list = frame_list[::FREQ]
-
-print(
-	f"{vname} -> {l_set} :: ({i+1}/{len(videos)}):: number of frames = {n_frames}, frame_list {len(frame_list)}"
-)
-
-cap = cv2.VideoCapture(str(video))
-for ff in frame_list:
-	# print(ff)
-	cap.set(1, ff)
-	_, frame = cap.read()
-	cv2.imwrite(f"{save_fold}/{vname}_neg_{ff}.jpg", frame)
