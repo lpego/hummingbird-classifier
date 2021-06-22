@@ -126,8 +126,8 @@ def train_model(
                         )
                         torch.save(model, f"{model_dir}/model_pars_best.pt")
 
-                torch.save(model.state_dict(), f"{model_dir}/model_state_{epoch}.pt")
-                torch.save(model, f"{model_dir}/model_pars_{epoch}.pt")
+                # torch.save(model.state_dict(), f"{model_dir}/model_state_{epoch}.pt")
+                # torch.save(model, f"{model_dir}/model_pars_{epoch}.pt")
 
         print()
 

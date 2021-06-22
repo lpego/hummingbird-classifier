@@ -2,14 +2,13 @@
 %load_ext autoreload
 %autoreload 2
 
-prefix = "../"
-
 # standard ecosystem
 import os, sys, time, copy
 import numpy as np
 from pathlib import Path
 from PIL import Image
 
+prefix = "../"
 sys.path.append(f"{prefix}src")
 
 # torch imports
@@ -30,69 +29,59 @@ from learning_loops import train_model, visualize_model, infer_model
 from sklearn.model_selection import train_test_split
 from matplotlib import pyplot as plt
 
-hub_dir = Path(f"{prefix}models/").resolve()
+hub_dir = Path(f"/data/users/michele/hummingbird-classifier/models/").resolve()
 torch.hub.set_dir(hub_dir)
 
 print(f"current torch hub directory: {torch.hub.get_dir()}")
-# %%
+# %% # %%
 BSIZE = 32
 
-## TODO: SPLIT TRN, VAL and TEST sets into subfolders to /data/, where each class has a folder. Eeasier maybe to group videos and everything. 
-# Split negatives based on videos (so no frames from same video appear into different learning sets)
-# Split positives based on location or camera ID based on interactions.csv
+dir_dict_trn = {
+    "negatives": Path(f"{prefix}data/training_set/class_0"),
+    "positives": Path(f"{prefix}data/training_set/class_1"),
+    "meta_data": Path(f"{prefix}data/positives_verified.csv"),
+}
 
-dir_dict = {
-    "positives": Path(f"{prefix}data/positive_frames"),
-    "negatives": Path(f"{prefix}data/negative_frames"),
+dir_dict_val = {
+    "negatives": Path(f"{prefix}data/validation_set/class_0"),
+    "positives": Path(f"{prefix}data/validation_set/class_1"),
+    "meta_data": Path(f"{prefix}data/positives_verified.csv"),
+}
+
+dir_dict_tst = {
+    "negatives": Path(f"{prefix}data/test_set/class_0"),
+    "positives": Path(f"{prefix}data/test_set/class_1"),
     "meta_data": Path(f"{prefix}data/positives_verified.csv"),
 }
 
 augment = transforms.Compose(
     [
-        transforms.RandomHorizontalFlip(p=0.5),
+        # transforms.RandomHorizontalFlip(p=0.5),
         transforms.Resize((224, 224), interpolation=Image.BILINEAR),
         transforms.ToTensor(),
         transforms.Normalize((0.485, 0.456, 0.406), (0.229, 0.224, 0.225)),
     ]
 )
-# %% make learning set inds
-n_imgs = len(list(dir_dict["positives"].glob("*.jpg"))) + len(
-    list(dir_dict["negatives"].glob("*.jpg"))
-)
 
-np.random.seed(42)
-rands = np.arange(n_imgs)
-np.random.shuffle(rands)
-trn_s = int(0.7 * n_imgs)
-val_s = int(0 * n_imgs)
-tst_s = int(0.3 * n_imgs)
-trn_inds = rands[:trn_s].astype(int)
-val_inds = rands[trn_s : (trn_s + val_s)].astype(int)
-tst_inds = rands[(trn_s + val_s) :].astype(int)
-
-print(f"trn size: {trn_s}, val size {val_s}, tst size {tst_s}")
-
-# %% set up loaders
 trn_hummingbirds = HummingBirdLoader(
-    dir_dict, learning_set="trn", ls_inds=trn_inds, transforms=augment
+    dir_dict_trn, learning_set="trn", ls_inds=[], transforms=augment
 )
 
 val_hummingbirds = HummingBirdLoader(
-    dir_dict, learning_set="val", ls_inds=val_inds, transforms=augment
+    dir_dict_val, learning_set="val", ls_inds=[], transforms=augment
 )
 
 tst_hummingbirds = HummingBirdLoader(
-    dir_dict, learning_set="tst", ls_inds=tst_inds, transforms=augment
+    dir_dict_tst, learning_set="tst", ls_inds=[], transforms=augment
 )
 
 trn_loader = DataLoader(
     trn_hummingbirds, batch_size=BSIZE, shuffle=True, drop_last=True
 )
 
-val_loader = DataLoader(val_hummingbirds, batch_size=BSIZE)
-tst_loader = DataLoader(tst_hummingbirds, batch_size=BSIZE)
+val_loader = DataLoader(val_hummingbirds, shuffle=False, batch_size=BSIZE)
+tst_loader = DataLoader(tst_hummingbirds, shuffle=False, batch_size=BSIZE)
 
-dataloaders = {"trn": trn_loader, "val": tst_loader}
 # %% 
 cl, clc = np.unique(trn_hummingbirds.labels, return_counts=True)
 print(cl, clc)
@@ -109,10 +98,11 @@ print(class_weights)
 # %% set up model for inference
 
 device = "cuda" if torch.cuda.is_available() else "cpu"
-model_dir = Path("/data/users/michele/hummingbird-classifier/models/resnet18")
 
-model_pars = torch.load(model_dir / "model_pars_best.pt", map_location="cpu",)
-model_state = torch.load(model_dir / "model_state_best.pt", map_location="cpu",)
+model_folder = Path(f"{hub_dir}/vgg_newlearningsets/")
+
+model_pars = torch.load(model_folder / "model_pars_best.pt", map_location="cpu",)
+model_state = torch.load(model_folder / "model_state_best.pt", map_location="cpu",)
 
 model = model_pars
 model.load_state_dict(model_state)
@@ -122,11 +112,15 @@ criterion = nn.CrossEntropyLoss(weight=class_weights.to(device),reduce="mean")
 
 yhat, probs, gt = infer_model(model, tst_loader, criterion, device=device)
 
-model.to("cpu")
+model.to("cpu");
 # %%
 denorm = Denormalize(mean=(0.485, 0.456, 0.406), std=(0.229, 0.224, 0.225))
+# Redo with random shuffle so we get a mix of classes
+tst_loader = DataLoader(tst_hummingbirds, shuffle=True, batch_size=BSIZE)
 
-visualize_model(model, tst_loader, device="cpu", num_images=BSIZE, denormalize=denorm, save_folder=Path("../models/resnet18/somefigs/"))
+visualize_model(model, tst_loader, device="gpu", num_images=BSIZE, denormalize=denorm, save_folder=model_folder / "example_figs")
+
+
 # %% 
 from sklearn.metrics import classification_report, confusion_matrix
 
@@ -141,6 +135,7 @@ disp = ConfusionMatrixDisplay(confusion_matrix=cm,
 disp.plot()
 
 # %% 
+probs = probs.numpy()
 
 plt.figure()
 plt.scatter(range(100), probs[:100,0])
@@ -150,10 +145,44 @@ plt.scatter(range(100), gt[:100])
 plt.hlines(y=0.5, xmin=0, xmax=100, color="gray")
 
 # %% 
+
 plt.figure()
-plt.hist(probs[:1000,0].ravel(), bins=20)#, density=True)
-plt.hist(probs[:1000,1].ravel(), bins=20)#, density=True)
+plt.hist(probs[:,0].ravel(), bins=50, density=True, histtype="step")
+plt.hist(probs[:,1].ravel(), bins=50, density=True, histtype="step")
 plt.vlines(x=0.5, ymin=0, ymax=1.5, color="gray")
 
 
+# %%
+plt.figure()
+plt.hist(probs[:,0].ravel()-probs[:,1].ravel(), bins=50, density=False)#, histtype="step")
+plt.vlines(x=0, ymin=0, ymax=1.5, color="gray")
+# %%
+entropy = np.sum(np.log10(probs+1e-8) * (probs+1e-8), axis=1)
+
+
+# %% 
+plt.figure()
+plt.hist(entropy, bins=50, density=True)#, histtype="step")
+plt.vlines(x=0, ymin=0, ymax=1.5, color="gray")
+# %%
+plt.figure()
+plt.hist(probs[:,0].ravel(), bins=100, density=True, cumulative=True, histtype="step")
+plt.hist(probs[:,1].ravel(), bins=100, density=True, cumulative=True, histtype="step")
+plt.xlim([0,1])
+plt.vlines(x=0.5, ymin=0, ymax=1, color="gray")
+
+
+# %%
+for batch, (xb,yb) in enumerate(tst_loader):
+	
+	for i, (x,y) in enumerate(zip(xb,yb)):
+		# print(y)
+		# x, y = p
+		# print(y, gt[i], yhat[i], probs[i,:])
+		x = x.permute((1,2,0))
+		plt.figure()
+		plt.imshow(x)
+
+		if i == 3: 
+			break
 # %%

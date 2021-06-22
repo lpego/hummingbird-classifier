@@ -15,7 +15,7 @@ class HummingBirdLoader(Dataset):
         self.ls_inds = ls_inds
         self.learning_set = learning_set
 
-        self.img_paths, self.labels, self.inds = self.prepare_data(
+        self.img_paths, self.labels, self.inds, self.class_map = self.prepare_data(
             dir_dict, ls_inds=self.ls_inds
         )
 
@@ -35,20 +35,38 @@ class HummingBirdLoader(Dataset):
     @staticmethod
     def prepare_data(dir_dict, ls_inds):
 
-        # Make paths
-        positives = list(dir_dict["positives"].glob("*.jpg"))
-        negatives = list(dir_dict["negatives"].glob("*.jpg"))
-        img_paths = np.asarray(positives + negatives)
+        # Make classes
+        classes = [a for a in list(dir_dict.keys()) if a is not "meta_data"]
+        paths = []
+        labels = []
+        cl_map = []
 
-        # Make labels
-        labels = [1] * len(positives) + [0] * len(negatives)
-        labels = np.asarray(labels)
+        for c, cl in enumerate(classes):
+
+            cl_ = list(dir_dict[cl].glob("*.jpg"))
+
+            paths += cl_
+            labels += [c] * len(cl_)
+            cl_map.append([c, cl])
+
+        img_paths = np.asarray(paths)
+        # labels = np.asarray(labels)
         labels = torch.LongTensor(labels)
+        cl_map = np.asarray(cl_map)
+
+        # positives = list(dir_dict["positives"].glob("*.jpg"))
+        # negatives = list(dir_dict["negatives"].glob("*.jpg"))
+        # img_paths = np.asarray(positives + negatives)
+
+        # # Make labels
+        # labels = [1] * len(positives) + [0] * len(negatives)
+        # labels = np.asarray(labels)
+        # labels = torch.LongTensor(labels)
 
         if len(ls_inds) < 1:
-            return img_paths, labels, ls_inds
+            return img_paths, labels, ls_inds, cl_map
 
-        return img_paths[ls_inds], labels[ls_inds], ls_inds
+        return img_paths[ls_inds], labels[ls_inds], ls_inds, cl_map
 
 
 class Denormalize(object):

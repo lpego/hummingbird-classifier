@@ -1,5 +1,5 @@
 # %%
-prefix = "../"
+prefix = ""
 
 # standard ecosystem
 import os, sys, time, copy
@@ -34,9 +34,21 @@ print(f"current torch hub directory: {torch.hub.get_dir()}")
 # %%
 BSIZE = 32
 
-dir_dict = {
-    "positives": Path(f"{prefix}data/positive_frames"),
-    "negatives": Path(f"{prefix}data/negative_frames"),
+dir_dict_trn = {
+    "negatives": Path(f"{prefix}data/training_set/class_0"),
+    "positives": Path(f"{prefix}data/training_set/class_1"),
+    "meta_data": Path(f"{prefix}data/positives_verified.csv"),
+}
+
+dir_dict_val = {
+    "negatives": Path(f"{prefix}data/validation_set/class_0"),
+    "positives": Path(f"{prefix}data/validation_set/class_1"),
+    "meta_data": Path(f"{prefix}data/positives_verified.csv"),
+}
+
+dir_dict_tst = {
+    "negatives": Path(f"{prefix}data/test_set/class_0"),
+    "positives": Path(f"{prefix}data/test_set/class_1"),
     "meta_data": Path(f"{prefix}data/positives_verified.csv"),
 }
 
@@ -48,34 +60,18 @@ augment = transforms.Compose(
         transforms.Normalize((0.485, 0.456, 0.406), (0.229, 0.224, 0.225)),
     ]
 )
-# %% make learning set inds
-n_imgs = len(list(dir_dict["positives"].glob("*.jpg"))) + len(
-    list(dir_dict["negatives"].glob("*.jpg"))
-)
-
-np.random.seed(42)
-rands = np.arange(n_imgs)
-np.random.shuffle(rands)
-trn_s = int(0.7 * n_imgs)
-val_s = int(0 * n_imgs)
-tst_s = int(0.3 * n_imgs)
-trn_inds = rands[:trn_s].astype(int)
-val_inds = rands[trn_s : (trn_s + val_s)].astype(int)
-tst_inds = rands[(trn_s + val_s) :].astype(int)
-
-print(f"trn size: {trn_s}, val size {val_s}, tst size {tst_s}")
 
 # %% set up loaders
 trn_hummingbirds = HummingBirdLoader(
-    dir_dict, learning_set="trn", ls_inds=trn_inds, transforms=augment
+    dir_dict_trn, learning_set="trn", ls_inds=[], transforms=augment
 )
 
 val_hummingbirds = HummingBirdLoader(
-    dir_dict, learning_set="val", ls_inds=val_inds, transforms=augment
+    dir_dict_val, learning_set="val", ls_inds=[], transforms=augment
 )
 
 tst_hummingbirds = HummingBirdLoader(
-    dir_dict, learning_set="tst", ls_inds=tst_inds, transforms=augment
+    dir_dict_tst, learning_set="tst", ls_inds=[], transforms=augment
 )
 
 trn_loader = DataLoader(
@@ -85,7 +81,11 @@ trn_loader = DataLoader(
 val_loader = DataLoader(val_hummingbirds, batch_size=BSIZE)
 tst_loader = DataLoader(tst_hummingbirds, batch_size=BSIZE)
 
-dataloaders = {"trn": trn_loader, "val": tst_loader}
+dataloaders = {"trn": trn_loader, "val": val_loader}
+
+print("number of batches per loaders")
+print(len(trn_loader), len(val_loader), len(tst_loader))
+
 # %%
 cl, clc = np.unique(trn_hummingbirds.labels, return_counts=True)
 print(cl, clc)
@@ -97,8 +97,10 @@ print(class_weights)
 
 device = "cuda" if torch.cuda.is_available() else "cpu"
 # device = "cpu"
+model_folder = Path(f"{hub_dir}/vgg_newlearningsets/")
 
-architecture = "ResNet"
+architecture = "VGG"
+
 if architecture is "VGG":
     model = models.vgg16(pretrained=True)
 
@@ -128,14 +130,9 @@ elif architecture is "ResNet":
     for param in model.fc.parameters():
         param.requires_grad = True
 
-# print(model)
-
-# replace last linear layer of the classifier, change from 1000 classes to 2
-
 
 # Define Loss
 criterion = nn.CrossEntropyLoss(weight=class_weights.to(device), reduction="mean")
-
 
 # Alternatively, associate them with a very low learning rate
 # 10e-2 is a scaler to the original lr.
@@ -163,44 +160,5 @@ model_best, track_learning = train_model(
     exp_lr_scheduler,
     num_epochs=10,
     device=device,
-    model_dir=Path(f"{hub_dir}/resnet18/"),
+    model_dir=model_folder,
 )
-
-# %%
-# visualize_model(model_best, dataloaders, device=device)
-
-
-# model_pars = torch.load(
-#     Path(f"deapsnow_live/models/rnns/plain_cnn/logs/{MODEL_NAME}/model_pars.pt"),
-#     map_location="cpu",
-# )
-
-# model_state = torch.load(
-#     Path(f"deapsnow_live/models/rnns/plain_cnn/logs/{MODEL_NAME}/model_state.pt"),
-#     map_location="cpu",
-# )
-
-# model = model_pars
-# model.load_state_dict(model_state)
-# %%
-# denorm = Denormalize(mean=(0.485, 0.456, 0.406), std=(0.229, 0.224, 0.225))
-
-# c = 0
-# for batch in tst_loader:
-#     c +=1
-#     for x, y in batch:
-#         plt.figure()
-#         plt.title(f"label: {y}")
-#         plt.imshow(denorm(x).permute((1,2,0)))
-#     break
-# %%
-
-# x, y = dloader[0]
-# denorm = Denormalize(mean=(0.485, 0.456, 0.406), std=(0.229, 0.224, 0.225))
-
-# plt.figure()
-# plt.title(f"label: {y}")
-# plt.imshow(denorm(x).permute((1,2,0)))
-# %%
-
-# %%
