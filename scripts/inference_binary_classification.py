@@ -29,7 +29,7 @@ from learning_loops import train_model, visualize_model, infer_model
 from sklearn.model_selection import train_test_split
 from matplotlib import pyplot as plt
 
-hub_dir = Path(f"/data/users/michele/hummingbird-classifier/models/").resolve()
+hub_dir = Path(f"/data/shared/hummingbird-classifier/models/").resolve()
 torch.hub.set_dir(hub_dir)
 
 print(f"current torch hub directory: {torch.hub.get_dir()}")
@@ -116,9 +116,9 @@ model.to("cpu");
 # %%
 denorm = Denormalize(mean=(0.485, 0.456, 0.406), std=(0.229, 0.224, 0.225))
 # Redo with random shuffle so we get a mix of classes
-tst_loader = DataLoader(tst_hummingbirds, shuffle=True, batch_size=BSIZE)
+tst_loader_sh = DataLoader(tst_hummingbirds, shuffle=True, batch_size=BSIZE)
 
-visualize_model(model, tst_loader, device="gpu", num_images=BSIZE, denormalize=denorm, save_folder=model_folder / "example_figs")
+visualize_model(model, tst_loader_sh, device="cpu", num_images=BSIZE, denormalize=denorm, save_folder=model_folder / "example_figs")
 
 
 # %% 
@@ -138,7 +138,7 @@ disp.plot()
 probs = probs.numpy()
 
 plt.figure()
-plt.scatter(range(100), probs[:100,0])
+# plt.scatter(range(100), probs[:100,0])
 plt.scatter(range(100), probs[:100,1])
 # plt.scatter(range(100), gt[:100]-1)
 plt.scatter(range(100), gt[:100])
@@ -158,9 +158,7 @@ plt.hist(probs[:,0].ravel()-probs[:,1].ravel(), bins=50, density=False)#, histty
 plt.vlines(x=0, ymin=0, ymax=1.5, color="gray")
 # %%
 entropy = np.sum(np.log10(probs+1e-8) * (probs+1e-8), axis=1)
-
-
-# %% 
+ 
 plt.figure()
 plt.hist(entropy, bins=50, density=True)#, histtype="step")
 plt.vlines(x=0, ymin=0, ymax=1.5, color="gray")
@@ -186,3 +184,54 @@ for batch, (xb,yb) in enumerate(tst_loader):
 		if i == 3: 
 			break
 # %%
+cl = 0 
+tst_sub = probs[gt==cl,1]
+labs = gt[gt==cl]
+sind = np.argsort(1-tst_sub)
+# possort = tst_positives[ii]
+xfiles = tst_hummingbirds.img_paths[gt==1]
+# xsort = xsort[ii]
+
+for i, ss in enumerate(sind): 
+	with open(xfiles[ss], "rb") as f:
+            img = Image.open(f).convert("RGB")
+
+	plt.figure()
+	plt.title(f"LABEL: {int(labs[i])}, 0: {probs[ss,0]:.4f} - 1: {probs[ss,1]:.4f}")
+	plt.imshow(img)
+
+	if i == 20: 
+		break
+# %%
+
+# ATTEMPT PERFRAME VIDEO INFERENCE
+# 1) load video
+# 2) get frame, convert it to PIL
+# 3) apply preprocessing transorms
+# 4) loop through whole video and record per frame: 
+# 	- probs
+# 	- label
+# 	- frame number 
+# 	- ideally timestamp  
+
+video_file = Path("/data/shared/raw-video-import/data/RECODED_HummingbirdVideo/FH101_01.avi")
+
+probe = ffmpeg.probe(video)
+n_frames = int(probe["streams"][0]["nb_frames"])
+
+#%%
+vname = str(video).split("/")[-1][:-4]
+
+frame_list = np.arange(n_frames)
+frame_list = frame_list[::FREQ]
+
+print(
+	f"{vname} -> {l_set} :: ({i+1}/{len(videos)}):: number of frames = {n_frames}, frame_list {len(frame_list)}"
+)
+
+cap = cv2.VideoCapture(str(video))
+for ff in frame_list:
+	# print(ff)
+	cap.set(1, ff)
+	_, frame = cap.read()
+	cv2.imwrite(f"{save_fold}/{vname}_neg_{ff}.jpg", frame)

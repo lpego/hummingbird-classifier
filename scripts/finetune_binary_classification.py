@@ -144,7 +144,7 @@ criterion = nn.CrossEntropyLoss(weight=class_weights.to(device), reduction="mean
 optimizer_ft = optim.Adam(model.parameters(), lr=1e-4)  # , momentum=0.9)
 
 # Decay LR by a factor of 0.1 every 7 epochs
-exp_lr_scheduler = lr_scheduler.MultiStepLR(optimizer_ft, milestones=[3], gamma=0.1)
+exp_lr_scheduler = lr_scheduler.MultiStepLR(optimizer_ft, milestones=[500], gamma=0.1)
 
 # Send to CUDA
 if not prefix:
@@ -162,3 +162,5 @@ model_best, track_learning = train_model(
     device=device,
     model_dir=model_folder,
 )
+
+np.save(model_folder / "learning_curves.dict", track_learning)
