@@ -12,18 +12,20 @@ from pathlib import Path
 from PIL import Image
 import ffmpeg
 
+from joblib import Parallel, delayed
+
 # %% define function to count frames
-def count_frames(video_fold):
-    n_frames = 0
-    cap = cv2.VideoCapture(str(video))
-    nofail, _ = cap.read()
+# def count_frames(video_fold):
+#     n_frames = 0
+#     cap = cv2.VideoCapture(str(video))
+#     nofail, _ = cap.read()
 
-    while nofail:
-        nofail, _ = cap.read()
-        n_frames += 1
+#     while nofail:
+#         nofail, _ = cap.read()
+#         n_frames += 1
 
-    cap.release()
-    return n_frames
+#     cap.release()
+#     return n_frames
 
 
 def transform_path_to_name(fpath):
@@ -32,10 +34,34 @@ def transform_path_to_name(fpath):
     return fname
 
 
+def extract_frames_from_video(save_fold, video, FREQ):
+    probe = ffmpeg.probe(video)
+    n_frames = int(probe["streams"][0]["nb_frames"])
+
+    vname = str(video).split("/")[-1][:-4]
+
+    frame_list = np.arange(n_frames)
+    frame_list = frame_list[::FREQ]
+
+    # print(
+    #     f"{vname} -> {l_set} :: ({i+1}/{len(videos)}):: number of frames = {n_frames}, frame_list {len(frame_list)}"
+    # )
+
+    cap = cv2.VideoCapture(str(video))
+    for ff in frame_list:
+        # print(ff)
+        cap.set(1, ff)
+        _, frame = cap.read()
+        cv2.imwrite(f"{save_fold}/{vname}_neg_{ff}.jpg", frame)
+
+    cap.release()
+
+
 # %%
-root_f = Path("/data/users/michele/hummingbird-classifier")
+root_f = Path("/data/shared/hummingbird-classifier")
 vid_path = Path(f"/data/shared/raw-video-import/data/RECODED_HummingbirdVideo/")
-videos = list(vid_path.glob("**/*.avi"))
+videos = list(vid_path.glob("**/*_01.avi"))
+videos.sort()
 
 trs, vas, tss = int(0.6 * len(videos)), int(0.2 * len(videos)), int(0.2 * len(videos))
 
@@ -56,8 +82,10 @@ print(f"{len(videos)} videos from {vid_path}")
 
 # split videos in training, validation and test.
 ## TODO: use for testing the videos with annotations.
-FREQ = 75
+FREQ = 33
 learning_sets = ["trn", "val", "tst"]
+
+pool = Parallel(n_jobs=8, verbose=11, backend="threading")
 
 for l_set in learning_sets:
     save_fold = vids_learn_set[l_set]["folder"]
@@ -65,28 +93,33 @@ for l_set in learning_sets:
 
     videos = vids_learn_set[l_set]["vids"]
 
-    for i, video in enumerate(videos[:]):
+    # print(f"{l_set} :: {len(videos)}")
+    # for i, video in enumerate(videos[:]):
+    # extract_frames_from_video(save_fold, video, FREQ)
 
-        probe = ffmpeg.probe(video)
-        n_frames = int(probe["streams"][0]["nb_frames"])
+    pool(delayed(extract_frames_from_video)(save_fold, vid, FREQ) for vid in videos)
 
-        vname = str(video).split("/")[-1][:-4]
+    # probe = ffmpeg.probe(video)
+    # n_frames = int(probe["streams"][0]["nb_frames"])
 
-        frame_list = np.arange(n_frames)
-        frame_list = frame_list[::FREQ]
+    # vname = str(video).split("/")[-1][:-4]
 
-        print(
-            f"{vname} -> {l_set} :: ({i+1}/{len(videos)}):: number of frames = {n_frames}, frame_list {len(frame_list)}"
-        )
+    # frame_list = np.arange(n_frames)
+    # frame_list = frame_list[::FREQ]
 
-        cap = cv2.VideoCapture(str(video))
-        for ff in frame_list:
-            # print(ff)
-            cap.set(1, ff)
-            _, frame = cap.read()
-            cv2.imwrite(f"{save_fold}/{vname}_neg_{ff}.jpg", frame)
+    # print(
+    #     f"{vname} -> {l_set} :: ({i+1}/{len(videos)}):: number of frames = {n_frames}, frame_list {len(frame_list)}"
+    # )
 
-        cap.release()
+    # cap = cv2.VideoCapture(str(video))
+    # for ff in frame_list:
+    #     frame_destination = f"{save_fold}/{vname}_neg_{ff}.jpg"
+    #     print(frame_destination)
+    #     cap.set(1, ff)
+    #     _, frame = cap.read()
+    #     cv2.imwrite(frame_destination, frame)
+
+    # cap.release()
 
 # %% Prepare positive frames
 # Split frames according to their geo location.
