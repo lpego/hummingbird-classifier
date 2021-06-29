@@ -23,7 +23,6 @@ from torchvision import models, transforms
 from HummingBirdLoader import HummingBirdLoader, Denormalize
 from learning_loops import train_model, visualize_model
 
-
 from sklearn.model_selection import train_test_split
 from matplotlib import pyplot as plt
 
@@ -97,9 +96,10 @@ print(class_weights)
 
 device = "cuda" if torch.cuda.is_available() else "cpu"
 # device = "cpu"
-model_folder = Path(f"{hub_dir}/vgg_newlearningsets/")
 
-architecture = "VGG"
+architecture = "ResNet50"
+append = "_v2"
+model_folder = Path(f"{hub_dir}/{architecture}{append}/")
 
 if architecture is "VGG":
     model = models.vgg16(pretrained=True)
@@ -118,9 +118,28 @@ if architecture is "VGG":
         else:
             param.requires_grad = False
 
-elif architecture is "ResNet":
+    # pars = []
+    # for param in model.classifier.parameters():
+    #     if np.any([a == 2 for a in param.shape]):
+    #         pars.append({"param": param, "lr": 1})
+    #     else:
+    #         pars.append({"param": param, "lr": 1e-9})
+
+elif architecture is "ResNet18":
 
     model = models.resnet18(pretrained=True)
+    model.fc = nn.Linear(in_features=model.fc.in_features, out_features=2, bias=True)
+
+    # Freeze base feature extraction trunk:
+    for param in model.parameters():
+        param.requires_grad = False
+
+    for param in model.fc.parameters():
+        param.requires_grad = True
+
+elif architecture is "ResNet50":
+
+    model = models.resnet50(pretrained=True)
     model.fc = nn.Linear(in_features=model.fc.in_features, out_features=2, bias=True)
 
     # Freeze base feature extraction trunk:
@@ -141,15 +160,16 @@ criterion = nn.CrossEntropyLoss(weight=class_weights.to(device), reduction="mean
 # {"params": model.classifier.parameters(), "lr": 1},
 # ]
 
-optimizer_ft = optim.Adam(model.parameters(), lr=1e-3)  # , momentum=0.9)
+optimizer_ft = optim.Adam(
+    model.parameters(), lr=1e-4, weight_decay=1e-4
+)  # , momentum=0.9)
 
 # Decay LR by a factor of 0.1 every 7 epochs
-exp_lr_scheduler = lr_scheduler.MultiStepLR(optimizer_ft, milestones=[500], gamma=0.1)
+exp_lr_scheduler = lr_scheduler.MultiStepLR(optimizer_ft, milestones=[10], gamma=0.1)
 
 # Send to CUDA
 if not prefix:
     model = model.to(device)
-
 
 # %% TRAIN
 model_best, track_learning = train_model(
@@ -158,7 +178,7 @@ model_best, track_learning = train_model(
     criterion,
     optimizer_ft,
     exp_lr_scheduler,
-    num_epochs=10,
+    num_epochs=20,
     device=device,
     model_dir=model_folder,
 )

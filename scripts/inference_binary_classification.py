@@ -99,7 +99,8 @@ print(class_weights)
 
 device = "cuda" if torch.cuda.is_available() else "cpu"
 
-model_folder = Path(f"{hub_dir}/vgg_newlearningsets/")
+architecture = "ResNet50"
+model_folder = Path(f"{hub_dir}/{architecture}/")
 
 model_pars = torch.load(model_folder / "model_pars_best.pt", map_location="cpu",)
 model_state = torch.load(model_folder / "model_state_best.pt", map_location="cpu",)
@@ -113,14 +114,22 @@ criterion = nn.CrossEntropyLoss(weight=class_weights.to(device),reduce="mean")
 yhat, probs, gt = infer_model(model, tst_loader, criterion, device=device)
 
 model.to("cpu");
-# %%
-denorm = Denormalize(mean=(0.485, 0.456, 0.406), std=(0.229, 0.224, 0.225))
-# Redo with random shuffle so we get a mix of classes
-tst_loader_sh = DataLoader(tst_hummingbirds, shuffle=True, batch_size=BSIZE)
+# %% 
+learning_curves = np.load(model_folder / "learning_curves.dict.npy", allow_pickle=True).item()
+n_epochs = len(learning_curves["trn"]["loss"]); skip = 5
+plt.figure()
+plt.plot(learning_curves["trn"]["loss"])
+plt.plot(learning_curves["val"]["loss"])
+plt.ylabel("Cross-entropy (mean)")
+plt.xticks(range(0,n_epochs,skip),[a for a in range(0,n_epochs,skip)])
+plt.xlabel("Epochs")
 
-visualize_model(model, tst_loader_sh, device="cpu", num_images=BSIZE, denormalize=denorm, save_folder=model_folder / "example_figs")
-
-
+plt.figure()
+plt.plot(learning_curves["trn"]["accuracy"])
+plt.plot(learning_curves["val"]["accuracy"])
+plt.ylabel("Accuracy [%]")
+plt.xticks(range(0,n_epochs,skip),[a for a in range(0,n_epochs,skip)])
+plt.xlabel("Epochs")
 # %% 
 from sklearn.metrics import classification_report, confusion_matrix
 
@@ -147,8 +156,8 @@ plt.hlines(y=0.5, xmin=0, xmax=100, color="gray")
 # %% 
 
 plt.figure()
-plt.hist(probs[:,0].ravel(), bins=50, density=True, histtype="step")
-plt.hist(probs[:,1].ravel(), bins=50, density=True, histtype="step")
+plt.hist(probs[:,0].ravel(), bins=50, density=False, histtype="step")
+plt.hist(probs[:,1].ravel(), bins=50, density=False, histtype="step")
 plt.vlines(x=0.5, ymin=0, ymax=1.5, color="gray")
 
 
@@ -171,18 +180,22 @@ plt.vlines(x=0.5, ymin=0, ymax=1, color="gray")
 
 
 # %%
-for batch, (xb,yb) in enumerate(tst_loader):
-	
-	for i, (x,y) in enumerate(zip(xb,yb)):
-		# print(y)
-		# x, y = p
-		# print(y, gt[i], yhat[i], probs[i,:])
-		x = x.permute((1,2,0))
-		plt.figure()
-		plt.imshow(x)
+denorm = Denormalize(mean=(0.485, 0.456, 0.406), std=(0.229, 0.224, 0.225))
 
-		if i == 3: 
-			break
+for batch, (xb,yb) in enumerate(tst_loader):
+    
+    for i, (x,y) in enumerate(zip(xb,yb)):
+        # print(y)
+        # x, y = p
+        # print(y, gt[i], yhat[i], probs[i,:])
+        x = denorm(x).permute((1,2,0))
+        plt.figure()
+        plt.imshow(x)
+
+        if i == 3: 
+            break
+
+    break
 # %%
 cl = 0
 tst_sub = probs[gt==cl,1]
@@ -193,13 +206,35 @@ xfiles = tst_hummingbirds.img_paths[gt==cl]
 # xsort = xsort[ii]
 
 for i, ss in enumerate(sind): 
-	with open(xfiles[ss], "rb") as f:
+    with open(xfiles[ss], "rb") as f:
             img = Image.open(f).convert("RGB")
 
-	plt.figure()
-	plt.title(f"LABEL: {int(labs[i])}, 0: {probs[ss,0]:.4f} - 1: {probs[ss,1]:.4f}")
-	plt.imshow(img)
+    plt.figure()
+    plt.title(f"LABEL: {int(labs[i])}, 0: {probs[ss,0]:.4f} - 1: {probs[ss,1]:.4f}")
+    plt.imshow(img)
 
-	if i == 10: 
-		break
+    if i == 10: 
+        break
+# %%
+
+# %%
+# Redo with random shuffle so we get a mix of classes
+tst_loader_sh = DataLoader(tst_hummingbirds, shuffle=True, batch_size=BSIZE)
+
+visualize_model(model, tst_loader_sh, device="cpu", num_images=BSIZE, denormalize=denorm, save_folder=model_folder / "example_figs")
+
+
+# %% 
+
+
+
+# # Define Loss
+# criterion = nn.CrossEntropyLoss(weight=class_weights.to(device), reduction="mean")
+
+# Alternatively, associate them with a very low learning rate
+# 10e-2 is a scaler to the original lr.
+# pars = [
+#     {"params": model.features.parameters(), "lr": 1e-2},
+# {"params": model.classifier.parameters(), "lr": 1},
+# ]
 # %%

@@ -14,6 +14,7 @@ import torchvision
 from torchvision import datasets, models, transforms
 
 from sklearn.metrics import f1_score
+from tqdm import tqdm
 
 import matplotlib.pyplot as plt
 
@@ -65,7 +66,7 @@ def train_model(
             running_corrects = 0
 
             if STORE_PREDS:
-                yhat, gt, prob = torch.Tensor([]), torch.Tensor([]), torch.Tensor([])
+                yhat, gt, probs = torch.Tensor([]), torch.Tensor([]), torch.Tensor([])
 
             # Iterate over data.
             n_cur = 0
@@ -108,11 +109,14 @@ def train_model(
                 scheduler.step()
 
             epoch_loss = running_loss / n_batches
-            epoch_acc = running_corrects.double() / n_data
-            track_learning[phase]["loss"] = epoch_loss
-            track_learning[phase]["accuracy"] = epoch_acc
+            epoch_acc = running_corrects.cpu().numpy() / n_data
+            track_learning[phase]["loss"].append(epoch_loss)
+            track_learning[phase]["accuracy"].append(epoch_acc)
 
-            print(f"\r{phase} Loss: {epoch_loss:.4f} Acc: {epoch_acc:.4f}", end="\n")
+            print(f"\r ", end="\n")
+            print(
+                f"\r{phase} Loss: {epoch_loss:.4f} Acc: {epoch_acc*100:2.2f}", end="\n"
+            )
 
             # deep copy the model
             if phase == "val":
@@ -143,7 +147,7 @@ def train_model(
 
 def infer_model(model, dataloader, criterion, device="cpu"):
 
-    print(f"model on device {device}, inference on {dataloader.dataset.learning_set}")
+    # print(f"model on device {device}, inference on {dataloader.dataset.learning_set}")
     since = time.time()
 
     # Each epoch has a training and validation phase
@@ -158,7 +162,7 @@ def infer_model(model, dataloader, criterion, device="cpu"):
 
     # Iterate over data.
     n_cur = 0
-    for i, (inputs, labels) in enumerate(dataloader):
+    for i, (inputs, labels) in enumerate(tqdm(dataloader)):
         inputs = inputs.to(device)
         labels = labels.to(device)
         n_cur += len(labels)
@@ -169,7 +173,11 @@ def infer_model(model, dataloader, criterion, device="cpu"):
             outputs = model(inputs)
             proba = nn.Softmax(dim=1)(outputs)
             _, preds = torch.max(outputs, 1)
-            loss = criterion(outputs, labels)
+
+            if criterion is not None:
+                loss = criterion(outputs, labels)
+            else:
+                loss = torch.Tensor([0])
 
         # statistics
         running_loss += loss.item()  # * inputs.size(0)
