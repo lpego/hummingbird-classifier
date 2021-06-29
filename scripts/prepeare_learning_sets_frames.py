@@ -29,12 +29,18 @@ from joblib import Parallel, delayed
 
 
 def transform_path_to_name(fpath):
+    """
+        transforms the PosixPath path of a frame in the dropbox dump in a comprehensive filename.  
+    """
     fpath = Path(fpath)
     fname = "_".join([a for a in str(fpath).split("/") if a != "foundframes"])
     return fname
 
 
 def extract_frames_from_video(save_fold, video, FREQ):
+    """
+        function to extract frames with frequency `FREQ` (type: int) from the video at path `video` (type: PosixPath), and save frames as jpg at path `save_fold` (type: PosixPath). 
+    """
     probe = ffmpeg.probe(video)
     n_frames = int(probe["streams"][0]["nb_frames"])
 
@@ -42,10 +48,6 @@ def extract_frames_from_video(save_fold, video, FREQ):
 
     frame_list = np.arange(n_frames)
     frame_list = frame_list[::FREQ]
-
-    # print(
-    #     f"{vname} -> {l_set} :: ({i+1}/{len(videos)}):: number of frames = {n_frames}, frame_list {len(frame_list)}"
-    # )
 
     cap = cv2.VideoCapture(str(video))
     for ff in frame_list:
@@ -60,6 +62,8 @@ def extract_frames_from_video(save_fold, video, FREQ):
 # %%
 root_f = Path("/data/shared/hummingbird-classifier")
 vid_path = Path(f"/data/shared/raw-video-import/data/RECODED_HummingbirdVideo/")
+
+# 1) get all the videos that end in _01, as same name corresponds same location / video
 videos = list(vid_path.glob("**/*_01.avi"))
 videos.sort()
 
@@ -71,21 +75,54 @@ trv = videos[:trs]
 vav = videos[trs : (trs + vas)]
 tsv = videos[(trs + vas) :]
 
-vids_learn_set = {
-    "trn": {"vids": trv, "folder": Path(f"{root_f}/data/training_set/class_0/"),},
-    "val": {"vids": vav, "folder": Path(f"{root_f}/data/validation_set/class_0/"),},
-    "tst": {"vids": tsv, "folder": Path(f"{root_f}/data/test_set/class_0/")},
-}
 
-print(f"{len(videos)} videos from {vid_path}")
-# %%
+# 2) for each set, loop through videos and append those that have same name but different ending
+tem_ = trv.copy()
+trvf = []
+for vv in tem_:
+    vi = list(vid_path.glob(f"**/{vv.name[:-6]}*"))
+    for v in vi:
+        trvf.append(v)
+
+tem_ = vav.copy()
+vavf = []
+for vv in tem_:
+    vi = list(vid_path.glob(f"**/{vv.name[:-6]}*"))
+    for v in vi:
+        vavf.append(v)
+
+tem_ = tsv.copy()
+tsvf = []
+for vv in tem_:
+    vi = list(vid_path.glob(f"**/{vv.name[:-6]}*"))
+    for v in vi:
+        tsvf.append(v)
+
+
+vids_learn_set = {
+    "trn": {"vids": trvf, "folder": Path(f"{root_f}/data/training_set/class_0/"),},
+    "val": {"vids": vavf, "folder": Path(f"{root_f}/data/validation_set/class_0/"),},
+    "tst": {"vids": tsvf, "folder": Path(f"{root_f}/data/test_set/class_0/")},
+}
+print(f"trn: unique {len(trv)}, total: {len(trvf)} videos from {vid_path}")
+print(f"trn: unique {len(vav)}, total: {len(vavf)} videos from {vid_path}")
+print(f"trn: unique {len(tsv)}, total: {len(tsvf)} videos from {vid_path}")
+print(
+    f"total: unique {len(tsv) + len(vav) + len(trv)}, total: {len(tsvf) + len(vavf) + len(trvf)} videos from {vid_path}"
+)
+
+# %% NOW THE LOOPS ARE PARALLEL but have to check wether they work as supposed
 
 # split videos in training, validation and test.
 ## TODO: use for testing the videos with annotations.
-FREQ = 33
+# FREQ = 33 # for uniques
+FREQ = 75  # for all
+
 learning_sets = ["trn", "val", "tst"]
 
-pool = Parallel(n_jobs=8, verbose=11, backend="threading")
+PARALLEL = True  # make frame extraction in parallel on CPU
+if PARALLEL:
+    pool = Parallel(n_jobs=8, verbose=11, backend="threading")
 
 for l_set in learning_sets:
     save_fold = vids_learn_set[l_set]["folder"]
@@ -94,32 +131,11 @@ for l_set in learning_sets:
     videos = vids_learn_set[l_set]["vids"]
 
     # print(f"{l_set} :: {len(videos)}")
-    # for i, video in enumerate(videos[:]):
-    # extract_frames_from_video(save_fold, video, FREQ)
-
-    pool(delayed(extract_frames_from_video)(save_fold, vid, FREQ) for vid in videos)
-
-    # probe = ffmpeg.probe(video)
-    # n_frames = int(probe["streams"][0]["nb_frames"])
-
-    # vname = str(video).split("/")[-1][:-4]
-
-    # frame_list = np.arange(n_frames)
-    # frame_list = frame_list[::FREQ]
-
-    # print(
-    #     f"{vname} -> {l_set} :: ({i+1}/{len(videos)}):: number of frames = {n_frames}, frame_list {len(frame_list)}"
-    # )
-
-    # cap = cv2.VideoCapture(str(video))
-    # for ff in frame_list:
-    #     frame_destination = f"{save_fold}/{vname}_neg_{ff}.jpg"
-    #     print(frame_destination)
-    #     cap.set(1, ff)
-    #     _, frame = cap.read()
-    #     cv2.imwrite(frame_destination, frame)
-
-    # cap.release()
+    if PARALLEL:
+        pool(delayed(extract_frames_from_video)(save_fold, vid, FREQ) for vid in videos)
+    else:
+        for i, video in enumerate(videos[:]):
+            extract_frames_from_video(save_fold, video, FREQ)
 
 # %% Prepare positive frames
 # Split frames according to their geo location.
