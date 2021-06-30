@@ -17,7 +17,7 @@ from joblib import Parallel, delayed
 import ffmpeg
 import cv2
 
-prefix = ""
+prefix = "../"
 sys.path.append(f"{prefix}src")
 
 # torch imports
@@ -41,7 +41,7 @@ print(f"current torch hub directory: {torch.hub.get_dir()}")
 # %% 0 - prepare model
 
 device = "cuda" if torch.cuda.is_available() else "cpu"
-architecture = "ResNet50"
+architecture = "ResNet50_added_negatives"
 model_folder = Path(f"{hub_dir}/{architecture}/")
 save_pos_frames = model_folder / "extracted_video_frames"
 save_pos_frames.mkdir(exist_ok=True, parents=True)
@@ -72,7 +72,7 @@ augment = transforms.Compose(
 
 start = time.time()
 
-video_name = "FH101_02"
+video_name = "FH112_01"
 
 video = Path(
     f"/data/shared/raw-video-import/data/RECODED_HummingbirdVideo/{video_name}.avi"
@@ -100,7 +100,7 @@ for iv, video in enumerate(videos[:1]):
     # print(n_frames, length, framerate, duration_s)
 
     # frame_list = np.arange(15000, 16000, 1)#n_frames)
-    frame_list = np.arange(0, n_frames, 2)
+    frame_list = np.arange(0, n_frames, 5)
 
     cap = cv2.VideoCapture(str(video))
 
@@ -152,11 +152,17 @@ for iv, video in enumerate(videos[:1]):
 end = time.time()
 elapsed = str(datetime.timedelta(seconds=(end - start)))
 print(f"Time for plain video inference: {elapsed}")
+# %%
+
+plt.figure(figsize=(15, 5))
+plt.plot(df.prob_0)
+# plt.xticks(df.index[::100], df.frame_number[::100], rotation=90);
+plt.xticks(df.index[::100], df.index[::100], rotation=90)
 
 # %%
 if 1:
     # ONCE INFERENCE IS DONE, THIS RETRIEVES FRAMES BASED ON DETECTION PROBABILITIES
-    video_name = "FH101_02"
+    video_name = "FH112_01"
 
     df_folder = Path(
         f"/data/shared/hummingbird-classifier/models/{architecture}/extracted_video_frames/{video_name}/summary.csv"
@@ -167,16 +173,14 @@ if 1:
         f"/data/shared/raw-video-import/data/RECODED_HummingbirdVideo/{video_name}.avi"
     )
     # df.prob_1.astype(float).plot()
-    frame_list = (
-        df.iloc[:6000].loc[df.prob_1.astype(float) > 0.5].frame_number.iloc[:6000]
-    )
+    frame_list = df.iloc[800:900].loc[df.prob_1.astype(float) > 0.7].frame_number
     # )  # (-df[df.predicted_class == 1].prob_1).sort_values().index.astype(int)
 
     cap = cv2.VideoCapture(str(video))
     plt.figure()
     denorm = Denormalize(mean=(0.485, 0.456, 0.406), std=(0.229, 0.224, 0.225))
 
-    for ff in frame_list[:6000]:
+    for ff in frame_list[:]:
         # print(ff)
         cap.set(1, ff)
         _, frame = cap.read()
@@ -195,7 +199,7 @@ if 1:
 
 # %%
 if 0:
-    # This is all much slower. Needs to be parallelized somwhere. I suspect frame extraction can be sped up easy 20x but cv2.imwrite() calls do not respond.
+    # This is slower. Needs to be parallelized somwhere. I suspect frame extraction can be sped up easy 20x but cv2.imwrite() calls do not respond.
 
     # Fast inference option 2:
     # 	- save frames to temp folder in parallel,

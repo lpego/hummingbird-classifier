@@ -14,7 +14,8 @@ import torchvision
 from torchvision import datasets, models, transforms
 
 from sklearn.metrics import f1_score
-from tqdm import tqdm
+
+# from tqdm import tqdm
 
 import matplotlib.pyplot as plt
 
@@ -55,7 +56,8 @@ def train_model(
         for phase in ["trn", "val"]:
 
             n_batches = len(dataloaders[phase])
-            n_data = dataloaders[phase].batch_size * n_batches
+            batch_size = dataloaders[phase].batch_size
+            n_data = batch_size * n_batches
 
             if phase == "trn":
                 model.train()  # Set model to training mode
@@ -113,7 +115,7 @@ def train_model(
             track_learning[phase]["loss"].append(epoch_loss)
             track_learning[phase]["accuracy"].append(epoch_acc)
 
-            print(f"\r ", end="\n")
+            print(f"\r\r ", end="\n")
             print(
                 f"\r{phase} Loss: {epoch_loss:.4f} Acc: {epoch_acc*100:2.2f}", end="\n"
             )
@@ -162,7 +164,7 @@ def infer_model(model, dataloader, criterion, device="cpu"):
 
     # Iterate over data.
     n_cur = 0
-    for i, (inputs, labels) in enumerate(tqdm(dataloader)):
+    for i, (inputs, labels) in enumerate(dataloader):
         inputs = inputs.to(device)
         labels = labels.to(device)
         n_cur += len(labels)

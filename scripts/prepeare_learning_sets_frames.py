@@ -122,7 +122,7 @@ learning_sets = ["trn", "val", "tst"]
 
 PARALLEL = True  # make frame extraction in parallel on CPU
 if PARALLEL:
-    pool = Parallel(n_jobs=8, verbose=11, backend="threading")
+    pool = Parallel(n_jobs=8, verbose=1, backend="threading")
 
 for l_set in learning_sets:
     save_fold = vids_learn_set[l_set]["folder"]
