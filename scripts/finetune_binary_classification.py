@@ -101,7 +101,8 @@ device = "cuda" if torch.cuda.is_available() else "cpu"
 
 # architecture = "VGG"
 # architecture = "ResNet50"
-architecture = "mobilenet"
+# architecture = "mobilenet"
+architecture = "DenseNet161"
 append = ""
 
 model_folder = Path(f"{hub_dir}/{architecture}{append}/")
@@ -124,7 +125,7 @@ optimizer_ft = optim.Adam(
 
 # Decay LR by a factor of 0.1 every 7 epochs
 exp_lr_scheduler = lr_scheduler.MultiStepLR(
-    optimizer_ft, milestones=[1, 2, 3, 4, 5], gamma=0.1
+    optimizer_ft, milestones=[1, 2, 3, 4], gamma=0.1
 )
 
 # Send to CUDA

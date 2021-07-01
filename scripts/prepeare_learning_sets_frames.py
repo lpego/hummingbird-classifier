@@ -1,4 +1,5 @@
 # %%
+# Remember to convert videos before running this!
 
 import os, sys
 import cv2
@@ -14,18 +15,16 @@ import ffmpeg
 
 from joblib import Parallel, delayed
 
-# %% define function to count frames
-# def count_frames(video_fold):
-#     n_frames = 0
-#     cap = cv2.VideoCapture(str(video))
-#     nofail, _ = cap.read()
+# %%
+## BALANCED
+# FREQ = 33 # for unique videos
+# FREQ = 75  # for all
+## MORE NEGATIVES (2x)
+FREQ = 38  # for all
+PARALLEL = True  # make video frame extraction in parallel on CPU
+data_subfolder = "more_negatives"
 
-#     while nofail:
-#         nofail, _ = cap.read()
-#         n_frames += 1
-
-#     cap.release()
-#     return n_frames
+# %%
 
 
 def transform_path_to_name(fpath):
@@ -75,7 +74,6 @@ trv = videos[:trs]
 vav = videos[trs : (trs + vas)]
 tsv = videos[(trs + vas) :]
 
-
 # 2) for each set, loop through videos and append those that have same name but different ending
 tem_ = trv.copy()
 trvf = []
@@ -100,13 +98,22 @@ for vv in tem_:
 
 
 vids_learn_set = {
-    "trn": {"vids": trvf, "folder": Path(f"{root_f}/data/training_set/class_0/"),},
-    "val": {"vids": vavf, "folder": Path(f"{root_f}/data/validation_set/class_0/"),},
-    "tst": {"vids": tsvf, "folder": Path(f"{root_f}/data/test_set/class_0/")},
+    "trn": {
+        "vids": trvf,
+        "folder": Path(f"{root_f}/data/{data_subfolder}/training_set/class_0/"),
+    },
+    "val": {
+        "vids": vavf,
+        "folder": Path(f"{root_f}/data/{data_subfolder}/validation_set/class_0/"),
+    },
+    "tst": {
+        "vids": tsvf,
+        "folder": Path(f"{root_f}/data/{data_subfolder}/test_set/class_0/"),
+    },
 }
 print(f"trn: unique {len(trv)}, total: {len(trvf)} videos from {vid_path}")
-print(f"trn: unique {len(vav)}, total: {len(vavf)} videos from {vid_path}")
-print(f"trn: unique {len(tsv)}, total: {len(tsvf)} videos from {vid_path}")
+print(f"val: unique {len(vav)}, total: {len(vavf)} videos from {vid_path}")
+print(f"tst: unique {len(tsv)}, total: {len(tsvf)} videos from {vid_path}")
 print(
     f"total: unique {len(tsv) + len(vav) + len(trv)}, total: {len(tsvf) + len(vavf) + len(trvf)} videos from {vid_path}"
 )
@@ -115,12 +122,9 @@ print(
 
 # split videos in training, validation and test.
 ## TODO: use for testing the videos with annotations.
-# FREQ = 33 # for uniques
-FREQ = 75  # for all
+
 
 learning_sets = ["trn", "val", "tst"]
-
-PARALLEL = True  # make frame extraction in parallel on CPU
 if PARALLEL:
     pool = Parallel(n_jobs=8, verbose=1, backend="threading")
 
@@ -165,9 +169,18 @@ vav = sites[(perc_counts >= 0.6) & ((perc_counts < 0.8))]
 tsv = sites[perc_counts > 0.8]
 
 stills_learn_set = {
-    "trn": {"sites": trv, "folder": Path(f"{root_f}/data/training_set/class_1/"),},
-    "val": {"sites": vav, "folder": Path(f"{root_f}/data/validation_set/class_1/"),},
-    "tst": {"sites": tsv, "folder": Path(f"{root_f}/data/test_set/class_1/")},
+    "trn": {
+        "sites": trv,
+        "folder": Path(f"{root_f}/data/{data_subfolder}/training_set/class_1/"),
+    },
+    "val": {
+        "sites": vav,
+        "folder": Path(f"{root_f}/data/{data_subfolder}/validation_set/class_1/"),
+    },
+    "tst": {
+        "sites": tsv,
+        "folder": Path(f"{root_f}/data/{data_subfolder}/test_set/class_1/"),
+    },
 }
 
 print(f"{len(sites)} sites from {annotation_file}")
