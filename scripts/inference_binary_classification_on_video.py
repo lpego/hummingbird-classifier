@@ -8,7 +8,8 @@ import numpy as np
 import pandas as pd
 from pathlib import Path
 from PIL import Image
-from tqdm import tqdm
+
+# from tqdm import tqdm
 import datetime
 import time
 

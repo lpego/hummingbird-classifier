@@ -35,22 +35,22 @@ torch.hub.set_dir(hub_dir)
 print(f"current torch hub directory: {torch.hub.get_dir()}")
 # %% # %%
 BSIZE = 32
-
+set_type = "more_negatives" # "balanced" or "more_negatives" 
 dir_dict_trn = {
-    "negatives": Path(f"{prefix}data/training_set/class_0"),
-    "positives": Path(f"{prefix}data/training_set/class_1"),
+    "negatives": Path(f"{prefix}data/training_set/{set_type}/class_0"),
+    "positives": Path(f"{prefix}data/training_set/{set_type}/class_1"),
     "meta_data": Path(f"{prefix}data/positives_verified.csv"),
 }
 
 dir_dict_val = {
-    "negatives": Path(f"{prefix}data/validation_set/class_0"),
-    "positives": Path(f"{prefix}data/validation_set/class_1"),
+    "negatives": Path(f"{prefix}data/validation_set/{set_type}/class_0"),
+    "positives": Path(f"{prefix}data/validation_set/{set_type}/class_1"),
     "meta_data": Path(f"{prefix}data/positives_verified.csv"),
 }
 
 dir_dict_tst = {
-    "negatives": Path(f"{prefix}data/test_set/class_0"),
-    "positives": Path(f"{prefix}data/test_set/class_1"),
+    "negatives": Path(f"{prefix}data/test_set/{set_type}/class_0"),
+    "positives": Path(f"{prefix}data/test_set/{set_type}/class_1"),
     "meta_data": Path(f"{prefix}data/positives_verified.csv"),
 }
 
@@ -99,7 +99,7 @@ print(class_weights)
 
 device = "cuda" if torch.cuda.is_available() else "cpu"
 
-architecture = "ResNet50"
+architecture = f"DenseNet161_{set_type}"
 model_folder = Path(f"{hub_dir}/{architecture}/")
 
 model_pars = torch.load(model_folder / "model_pars_best.pt", map_location="cpu",)
@@ -111,10 +111,12 @@ model.to(device)
 
 criterion = nn.CrossEntropyLoss(weight=class_weights.to(device),reduce="mean")
 
+# %%
 yhat, probs, gt = infer_model(model, tst_loader, criterion, device=device)
 
 model.to("cpu");
 # %% 
+
 learning_curves = np.load(model_folder / "learning_curves.dict.npy", allow_pickle=True).item()
 n_epochs = len(learning_curves["trn"]["loss"]); skip = 5
 plt.figure()
@@ -180,22 +182,7 @@ plt.vlines(x=0.5, ymin=0, ymax=1, color="gray")
 
 
 # %%
-denorm = Denormalize(mean=(0.485, 0.456, 0.406), std=(0.229, 0.224, 0.225))
 
-for batch, (xb,yb) in enumerate(tst_loader):
-    
-    for i, (x,y) in enumerate(zip(xb,yb)):
-        # print(y)
-        # x, y = p
-        # print(y, gt[i], yhat[i], probs[i,:])
-        x = denorm(x).permute((1,2,0))
-        plt.figure()
-        plt.imshow(x)
-
-        if i == 3: 
-            break
-
-    break
 # %%
 cl = 0
 tst_sub = probs[gt==cl,1]
@@ -203,17 +190,19 @@ labs = gt[gt==cl]
 sind = np.argsort(1-tst_sub)
 # possort = tst_positives[ii]
 xfiles = tst_hummingbirds.img_paths[gt==cl]
+xnames = tst_hummingbirds.img_paths[gt==cl]
 # xsort = xsort[ii]
 
-for i, ss in enumerate(sind): 
+for i, ss in enumerate(sind[60:]): 
     with open(xfiles[ss], "rb") as f:
             img = Image.open(f).convert("RGB")
 
     plt.figure()
-    plt.title(f"LABEL: {int(labs[i])}, 0: {probs[ss,0]:.4f} - 1: {probs[ss,1]:.4f}")
+    plt.title(f"LABEL: {int(labs[i])}, 0: {probs[ss,0]:.4f} - 1: {probs[ss,1]:.4f}\n"
+			  f"VIDEO: {xnames[ss].name}")
     plt.imshow(img)
 
-    if i == 10: 
+    if i == 30: 
         break
 # %%
 
@@ -221,12 +210,24 @@ for i, ss in enumerate(sind):
 # Redo with random shuffle so we get a mix of classes
 tst_loader_sh = DataLoader(tst_hummingbirds, shuffle=True, batch_size=BSIZE)
 
-visualize_model(model, tst_loader_sh, device="cpu", num_images=BSIZE, denormalize=denorm, save_folder=model_folder / "example_figs")
+# visualize_model(model, tst_loader_sh, device="cpu", num_images=BSIZE, denormalize=denorm, save_folder=model_folder / "example_figs")
 
+denorm = Denormalize(mean=(0.485, 0.456, 0.406), std=(0.229, 0.224, 0.225))
 
-# %% 
+for batch, (xb,yb) in enumerate(tst_loader_sh):
+    for i, (x,y) in enumerate(zip(xb,yb)):
+        # print(y)
+        # x, y = p
+        print(y, yhat[i], probs[i,:])
+        x = denorm(x).permute((1,2,0))
+        plt.figure()
+		# plt.title(f"y {}, gt {}, yhat {}, ")
+        plt.imshow(x)
 
+        if i == 3: 
+            break
 
+    break
 
 # # Define Loss
 # criterion = nn.CrossEntropyLoss(weight=class_weights.to(device), reduction="mean")

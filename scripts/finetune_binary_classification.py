@@ -33,22 +33,22 @@ torch.hub.set_dir(hub_dir)
 print(f"current torch hub directory: {torch.hub.get_dir()}")
 # %%
 BSIZE = 32
-
+set_type = "more_negatives"  # "balanced"
 dir_dict_trn = {
-    "negatives": Path(f"{prefix}data/training_set/class_0"),
-    "positives": Path(f"{prefix}data/training_set/class_1"),
+    "negatives": Path(f"{prefix}data/training_set/{set_type}/class_0"),
+    "positives": Path(f"{prefix}data/training_set/{set_type}/class_1"),
     "meta_data": Path(f"{prefix}data/positives_verified.csv"),
 }
 
 dir_dict_val = {
-    "negatives": Path(f"{prefix}data/validation_set/class_0"),
-    "positives": Path(f"{prefix}data/validation_set/class_1"),
+    "negatives": Path(f"{prefix}data/validation_set/{set_type}/class_0"),
+    "positives": Path(f"{prefix}data/validation_set/{set_type}/class_1"),
     "meta_data": Path(f"{prefix}data/positives_verified.csv"),
 }
 
 dir_dict_tst = {
-    "negatives": Path(f"{prefix}data/test_set/class_0"),
-    "positives": Path(f"{prefix}data/test_set/class_1"),
+    "negatives": Path(f"{prefix}data/test_set/{set_type}/class_0"),
+    "positives": Path(f"{prefix}data/test_set/{set_type}/class_1"),
     "meta_data": Path(f"{prefix}data/positives_verified.csv"),
 }
 
@@ -103,7 +103,7 @@ device = "cuda" if torch.cuda.is_available() else "cpu"
 # architecture = "ResNet50"
 # architecture = "mobilenet"
 architecture = "DenseNet161"
-append = ""
+append = set_type
 
 model_folder = Path(f"{hub_dir}/{architecture}{append}/")
 
