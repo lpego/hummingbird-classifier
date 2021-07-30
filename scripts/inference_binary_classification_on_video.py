@@ -42,7 +42,7 @@ print(f"current torch hub directory: {torch.hub.get_dir()}")
 # %% 0 - prepare model
 
 device = "cuda" if torch.cuda.is_available() else "cpu"
-architecture = "ResNet50_added_negatives"
+architecture = "DenseNet161_more_negatives_v2"
 model_folder = Path(f"{hub_dir}/{architecture}/")
 save_pos_frames = model_folder / "extracted_video_frames"
 save_pos_frames.mkdir(exist_ok=True, parents=True)
@@ -58,33 +58,48 @@ model.eval()
 augment = transforms.Compose(
     [
         # transforms.RandomHorizontalFlip(p=0.5),
-        transforms.Resize((224, 224), interpolation=Image.BILINEAR),
+        transforms.Resize((500, 500), interpolation=Image.BILINEAR),  # AT LEAST 224
         transforms.ToTensor(),
         transforms.Normalize((0.485, 0.456, 0.406), (0.229, 0.224, 0.225)),
     ]
 )
+# %%
+# video_name = "FH803_01"
 
+df_anno = pd.read_csv(
+    "/data/shared/raw-video-import/data/Weinstein2018MEE_ground_truth.csv"
+)
+df_anno = df_anno.drop_duplicates()
+df_anno.Truth = df_anno.Truth.replace({"Negative": 0, "Positive": 1})
+
+# df_vi = df_anno[df_anno.Video == video_name]
+# df_vi = df_vi[df_vi.Truth == 1].drop_duplicates()
+if 0:
+    for vv in df_anno.Video.unique():
+        plt.figure()
+        plt.title(f"{vv}")
+        plt.plot(df_anno[df_anno.Video == vv].Frame, df_anno[df_anno.Video == vv].Truth)
 # %% 1 - prepare video and run it through the model
 
-# videos = list(
-#     Path("/data/shared/raw-video-import/data/RECODED_HummingbirdVideo/").glob("*.avi")
-# )
-# videos.sort()
+videos = list(
+    Path("/data/shared/raw-video-import/data/RECODED_HummingbirdVideo/").glob("*.avi")
+)
+videos.sort()
 
 start = time.time()
 
-video_name = "FH112_01"
+video_name = "FH705_01"
 
 video = Path(
+    # f"/data/shared/raw-video-import/data/RECODED_AnnotatedVideos/{video_name}.avi"
     f"/data/shared/raw-video-import/data/RECODED_HummingbirdVideo/{video_name}.avi"
 )
 videos = [video]
-
+# %%
 model.eval()
-
 SAVE_POSITIVES = False
 FLAG = True
-for iv, video in enumerate(videos[:1]):
+for iv, video in enumerate(videos[:]):
     # tqdm.write(f"{video.name}, {iv+1}/{len(videos)}")
     # print()
     save_frames = save_pos_frames / (str(video.name)[:-4])
@@ -101,7 +116,8 @@ for iv, video in enumerate(videos[:1]):
     # print(n_frames, length, framerate, duration_s)
 
     # frame_list = np.arange(15000, 16000, 1)#n_frames)
-    frame_list = np.arange(0, n_frames, 5)
+    frame_list = np.arange(0, n_frames, 2)
+    # frame_list = df_vi.Frame.values
 
     cap = cv2.VideoCapture(str(video))
 
@@ -116,11 +132,11 @@ for iv, video in enumerate(videos[:1]):
             "prob_1",
         ],
     )
-    for i, ff in enumerate(
-        tqdm(frame_list[:], desc=f"{video.name}, video {iv+1} of {len(videos)}")
-        # frame_list[:10]
+    for fi, ff in enumerate(
+        # tqdm(frame_list[:], desc=f"{video.name}, video {iv+1} of {len(videos)}")
+        frame_list[:]
     ):
-        # print(ff)
+        print(f"\r{fi} / {len(frame_list)}", end="")
         cap.set(1, ff)
         _, frame = cap.read()
         frame = frame[:, :, [2, 1, 0]]
@@ -134,14 +150,14 @@ for iv, video in enumerate(videos[:1]):
         # print(proba, preds, outputs)
 
         time_fr = str(datetime.timedelta(seconds=ff * 1 / framerate))
-        df.iloc[i, :].loc["timestamp_video"] = time_fr[:-5] + "/" + duration_s
-        df.iloc[i, :].loc["frame_number"] = ff
-        df.iloc[i, :].loc["predicted_class"] = preds.cpu().numpy().squeeze()
-        df.iloc[i, :].loc["prob_0"] = proba[0].cpu().numpy()
-        df.iloc[i, :].loc["prob_1"] = proba[1].cpu().numpy()
+        df.iloc[fi, :].loc["timestamp_video"] = time_fr[:-5] + "/" + duration_s
+        df.iloc[fi, :].loc["frame_number"] = ff
+        df.iloc[fi, :].loc["predicted_class"] = preds.cpu().numpy().squeeze()
+        df.iloc[fi, :].loc["prob_0"] = proba[0].cpu().numpy()
+        df.iloc[fi, :].loc["prob_1"] = proba[1].cpu().numpy()
 
         if SAVE_POSITIVES:
-            if df.iloc[i, :].loc["prob_1"] > 0.5:
+            if df.iloc[fi, :].loc["prob_1"] > 0.5:
                 pframe.save(save_frames / (str(ff) + ".jpg"))
                 if FLAG:
                     plt.figure()
@@ -156,14 +172,18 @@ print(f"Time for plain video inference: {elapsed}")
 # %%
 
 plt.figure(figsize=(15, 5))
-plt.plot(df.prob_0)
+plt.plot(df.prob_1)
 # plt.xticks(df.index[::100], df.frame_number[::100], rotation=90);
-plt.xticks(df.index[::100], df.index[::100], rotation=90)
+plt.xticks(df.index[::100], df.frame_number[::100], rotation=90)
 
+plt.plot(
+    df_anno[df_anno.Video == video_name].Frame,
+    df_anno[df_anno.Video == video_name].Truth,
+)
 # %%
 if 1:
     # ONCE INFERENCE IS DONE, THIS RETRIEVES FRAMES BASED ON DETECTION PROBABILITIES
-    video_name = "FH112_01"
+    # video_name = "FH403_01"
 
     df_folder = Path(
         f"/data/shared/hummingbird-classifier/models/{architecture}/extracted_video_frames/{video_name}/summary.csv"
@@ -171,18 +191,19 @@ if 1:
     df = pd.read_csv(df_folder)
 
     video = Path(
+        # f"/data/shared/raw-video-import/data/RECODED_AnnotatedVideos/{video_name}.avi"
         f"/data/shared/raw-video-import/data/RECODED_HummingbirdVideo/{video_name}.avi"
     )
-    # df.prob_1.astype(float).plot()
-    frame_list = df.iloc[800:900].loc[df.prob_1.astype(float) > 0.7].frame_number
-    # )  # (-df[df.predicted_class == 1].prob_1).sort_values().index.astype(int)
+    # frame_list = df.iloc[200:220].frame_number
+    frame_list = df.loc[df.prob_1.astype(float) > 0.8].frame_number
+    # frame_list = df_vi.Frame.values
 
     cap = cv2.VideoCapture(str(video))
     plt.figure()
     denorm = Denormalize(mean=(0.485, 0.456, 0.406), std=(0.229, 0.224, 0.225))
 
-    for ff in frame_list[:]:
-        # print(ff)
+    for fi, ff in enumerate(frame_list[:]):
+        print(f"{ff} ({1+fi} / {len(frame_list)})", end="\n")
         cap.set(1, ff)
         _, frame = cap.read()
         frame = frame[:, :, [2, 1, 0]]
@@ -196,6 +217,9 @@ if 1:
         plt.imshow(np.array(pframe))
 
         plt.show()
+
+
+# %%
 
 
 # %%

@@ -35,29 +35,29 @@ torch.hub.set_dir(hub_dir)
 print(f"current torch hub directory: {torch.hub.get_dir()}")
 # %% # %%
 BSIZE = 32
-set_type = "more_negatives" # "balanced" or "more_negatives" 
+set_type = "more_negatives"  # "balanced"
 dir_dict_trn = {
-    "negatives": Path(f"{prefix}data/training_set/{set_type}/class_0"),
-    "positives": Path(f"{prefix}data/training_set/{set_type}/class_1"),
+    "negatives": Path(f"{prefix}data/{set_type}/training_set/class_0"),
+    "positives": Path(f"{prefix}data/{set_type}/training_set/class_1"),
     "meta_data": Path(f"{prefix}data/positives_verified.csv"),
 }
 
 dir_dict_val = {
-    "negatives": Path(f"{prefix}data/validation_set/{set_type}/class_0"),
-    "positives": Path(f"{prefix}data/validation_set/{set_type}/class_1"),
+    "negatives": Path(f"{prefix}data/{set_type}/validation_set/class_0"),
+    "positives": Path(f"{prefix}data/{set_type}/validation_set/class_1"),
     "meta_data": Path(f"{prefix}data/positives_verified.csv"),
 }
 
 dir_dict_tst = {
-    "negatives": Path(f"{prefix}data/test_set/{set_type}/class_0"),
-    "positives": Path(f"{prefix}data/test_set/{set_type}/class_1"),
+    "negatives": Path(f"{prefix}data/{set_type}/test_set/class_0"),
+    "positives": Path(f"{prefix}data/{set_type}/test_set/class_1"),
     "meta_data": Path(f"{prefix}data/positives_verified.csv"),
 }
 
 augment = transforms.Compose(
     [
         # transforms.RandomHorizontalFlip(p=0.5),
-        transforms.Resize((224, 224), interpolation=Image.BILINEAR),
+        transforms.Resize((500, 500), interpolation=Image.BILINEAR),  # AT LEAST 224
         transforms.ToTensor(),
         transforms.Normalize((0.485, 0.456, 0.406), (0.229, 0.224, 0.225)),
     ]
@@ -180,9 +180,6 @@ plt.hist(probs[:,1].ravel(), bins=100, density=True, cumulative=True, histtype="
 plt.xlim([0,1])
 plt.vlines(x=0.5, ymin=0, ymax=1, color="gray")
 
-
-# %%
-
 # %%
 cl = 0
 tst_sub = probs[gt==cl,1]
@@ -193,7 +190,7 @@ xfiles = tst_hummingbirds.img_paths[gt==cl]
 xnames = tst_hummingbirds.img_paths[gt==cl]
 # xsort = xsort[ii]
 
-for i, ss in enumerate(sind[60:]): 
+for i, ss in enumerate(sind[:]): 
     with open(xfiles[ss], "rb") as f:
             img = Image.open(f).convert("RGB")
 
