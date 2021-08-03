@@ -99,7 +99,7 @@ print(class_weights)
 
 device = "cuda" if torch.cuda.is_available() else "cpu"
 
-architecture = f"DenseNet161_{set_type}"
+architecture = f"ResNet50_more_negatives_jitter_augmentation_200it"
 model_folder = Path(f"{hub_dir}/{architecture}/")
 
 model_pars = torch.load(model_folder / "model_pars_best.pt", map_location="cpu",)

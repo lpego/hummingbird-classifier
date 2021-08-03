@@ -8,6 +8,7 @@ import os, sys, time, copy
 import numpy as np
 from pathlib import Path
 from PIL import Image
+import datetime
 
 sys.path.append(f"{prefix}src")
 
@@ -33,7 +34,7 @@ torch.hub.set_dir(hub_dir)
 print(f"current torch hub directory: {torch.hub.get_dir()}")
 # %%
 BSIZE = 32
-set_type = "more_negatives"  # "balanced"
+set_type = "same_camera"  # "same_camera", "more_negatives"  # "balanced_classes"
 dir_dict_trn = {
     "negatives": Path(f"{prefix}data/{set_type}/training_set/class_0"),
     "positives": Path(f"{prefix}data/{set_type}/training_set/class_1"),
@@ -66,7 +67,7 @@ augment_tr = transforms.Compose(
         # transforms.RandomEqualize(),
         # transforms.RandomAutocontrast(),
         transforms.ColorJitter(brightness=0.5, hue=0.1),
-        transforms.Resize((500, 500), interpolation=Image.BILINEAR),  # AT LEAST 224
+        transforms.Resize((672, 627), interpolation=Image.BILINEAR),  # AT LEAST 224
         transforms.ToTensor(),
         transforms.Normalize((0.485, 0.456, 0.406), (0.229, 0.224, 0.225)),
     ]
@@ -75,7 +76,7 @@ augment_tr = transforms.Compose(
 augment_ts = transforms.Compose(
     [
         transforms.RandomHorizontalFlip(p=0.5),
-        transforms.Resize((500, 500), interpolation=Image.BILINEAR),  # AT LEAST 224
+        transforms.Resize((672, 672), interpolation=Image.BILINEAR),  # AT LEAST 224
         transforms.ToTensor(),
         transforms.Normalize((0.485, 0.456, 0.406), (0.229, 0.224, 0.225)),
     ]
@@ -117,10 +118,13 @@ device = "cuda" if torch.cuda.is_available() else "cpu"
 # architecture = "VGG"
 # architecture = "ResNet50"
 # architecture = "mobilenet"
-architecture = "ResNet50"
-append = set_type + "_jitter_augmentation"
+architecture = "ResNet18"
+
+append = set_type + "_jitter_augmentation_" + datetime.datetime.now().strftime("%Y%m%d")
 
 model_folder = Path(f"{hub_dir}/{architecture}_{append}/")
+
+print(f"folder: {model_folder.resolve()}")
 
 model = read_pretrained_model(architecture, n_class=2)
 
@@ -134,9 +138,9 @@ criterion = nn.CrossEntropyLoss(weight=class_weights.to(device), reduction="mean
 # {"params": model.classifier.parameters(), "lr": 1},
 # ]
 
-model.epochs = 200
+model.epochs = 15
 model.model_folder = model_folder
-model.learning_rate = 3e-6
+model.learning_rate = 1e-5
 model.weight_decay = 0  # 1e-8
 
 optimizer_ft = optim.Adam(
@@ -144,7 +148,7 @@ optimizer_ft = optim.Adam(
 )  # , momentum=0.9)
 
 # Decay LR by a factor of 0.1 every 7 epochs
-exp_lr_scheduler = lr_scheduler.MultiStepLR(optimizer_ft, milestones=[150], gamma=0.1)
+exp_lr_scheduler = lr_scheduler.MultiStepLR(optimizer_ft, milestones=[40], gamma=0.1)
 
 # Send to CUDA
 if not prefix:

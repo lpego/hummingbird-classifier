@@ -125,6 +125,8 @@ def train_model(
                 if epoch_acc > best_acc:
                     best_acc = epoch_acc
                     best_model = copy.deepcopy(model.state_dict())
+					
+					np.save(model_folder / "learning_curves.dict", track_learning)
 
                     if SAVE_BEST:
                         torch.save(
