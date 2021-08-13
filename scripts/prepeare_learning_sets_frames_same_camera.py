@@ -15,13 +15,14 @@ import ffmpeg
 
 from joblib import Parallel, delayed
 
+
 # %%
 ## BALANCED
 # FREQ = 33 # for unique videos
 # FREQ = 75  # for all
 ## MORE NEGATIVES (2x)
 PARALLEL = True  # make video frame extraction in parallel on CPU
-data_subfolder = "same_camera"
+data_subfolder = "same_camera"  # annotated_videos
 
 # %%
 def transform_path_to_name(fpath):
@@ -58,6 +59,7 @@ def extract_frames_from_video(save_fold, video, FREQ):
 # %%
 root_f = Path("/data/shared/hummingbird-classifier")
 vid_path = Path(f"/data/shared/raw-video-import/data/RECODED_HummingbirdVideo/")
+# vid_path = Path(f"/data/shared/raw-video-import/data/RECODED_AnnotatedVideos/")
 
 # 1) get all the videos that end in _01 and _02 or _03
 trv = list(vid_path.glob("**/*_01.avi"))
@@ -90,24 +92,27 @@ for vicand in vav[::-1]:
         tsv.append(vicand)
         vav.remove(vicand)
         cc += 1
-    if cc == 19:
+    if cc == 19:  # What is this
         break
 
 vids_learn_set = {
     "trn": {
         "vids": trv,
         "folder": Path(f"{root_f}/data/{data_subfolder}/training_set/class_0/"),
-        "freq": 50,  # Positives for the training: 19k. This gives 20k negatives
+        "freq": 50,  # HummingbirdVideos 50: Positives for the training: 19k. This gives 20k negatives
+        # AnnotatedVideos: 35
     },
     "val": {
         "vids": vav,
         "folder": Path(f"{root_f}/data/{data_subfolder}/validation_set/class_0/"),
-        "freq": 80,  # Positives for the validation: 6.5k. This gives 6.5k negatives
+        "freq": 80,  # HummingbirdVideos 80: Positives for the validation: 6.5k. This gives 6.5k negatives
+        # AnnotatedVideos: 100
     },
     "tst": {
         "vids": tsv,
         "folder": Path(f"{root_f}/data/{data_subfolder}/test_set/class_0/"),
-        "freq": 75,  # Positives for the test: 6.5k. This gives 6.3k negatives
+        "freq": 75,  # HummingbirdVideos 75: Positives for the test: 6.5k. This gives 6.3k negatives
+        # AnnotatedVideos: 100
     },
 }
 print(f"trn: total: {len(trv)} videos from {vid_path}")
@@ -147,7 +152,7 @@ for l_set in learning_sets:
 # i) read Interactions_corrected.csv and filter by "file_exists == True"
 # ii) group data by "waypoint", but could also be "site"
 # iii) ensure no image from the same grouping variable is included in more than one learning set. The initial waypoint splitting is mixed at random (as videos in the sections above)
-if 1:
+if 0:
     root_destination = Path("/data/users/michele/hummingbird-classifier")
     root_origin = Path("/data/shared/raw-data-import/data/raw-hierarchy/")
     annotation_file = Path(

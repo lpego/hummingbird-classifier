@@ -34,7 +34,7 @@ torch.hub.set_dir(hub_dir)
 print(f"current torch hub directory: {torch.hub.get_dir()}")
 # %%
 BSIZE = 32
-set_type = "same_camera"  # "same_camera", "more_negatives"  # "balanced_classes"
+set_type = "annotated_videos"  # "same_camera", "more_negatives", "balanced_classes", annotated_videos
 dir_dict_trn = {
     "negatives": Path(f"{prefix}data/{set_type}/training_set/class_0"),
     "positives": Path(f"{prefix}data/{set_type}/training_set/class_1"),
@@ -67,7 +67,7 @@ augment_tr = transforms.Compose(
         # transforms.RandomEqualize(),
         # transforms.RandomAutocontrast(),
         transforms.ColorJitter(brightness=0.5, hue=0.1),
-        transforms.Resize((672, 627), interpolation=Image.BILINEAR),  # AT LEAST 224
+        transforms.Resize((224, 224), interpolation=Image.BILINEAR),  # AT LEAST 224
         transforms.ToTensor(),
         transforms.Normalize((0.485, 0.456, 0.406), (0.229, 0.224, 0.225)),
     ]
@@ -76,7 +76,7 @@ augment_tr = transforms.Compose(
 augment_ts = transforms.Compose(
     [
         transforms.RandomHorizontalFlip(p=0.5),
-        transforms.Resize((672, 672), interpolation=Image.BILINEAR),  # AT LEAST 224
+        transforms.Resize((224, 224), interpolation=Image.BILINEAR),  # AT LEAST 224
         transforms.ToTensor(),
         transforms.Normalize((0.485, 0.456, 0.406), (0.229, 0.224, 0.225)),
     ]
@@ -116,11 +116,16 @@ device = "cuda" if torch.cuda.is_available() else "cpu"
 # device = "cpu"
 
 # architecture = "VGG"
-# architecture = "ResNet50"
+architecture = "ResNet50"
 # architecture = "mobilenet"
-architecture = "ResNet18"
+# architecture = "ResNet18"
 
-append = set_type + "_jitter_augmentation_" + datetime.datetime.now().strftime("%Y%m%d")
+append = (
+    set_type
+    + "_jitter_augmentation_"
+    + datetime.datetime.now().strftime("%Y%m%d")
+    + "_224x"
+)
 
 model_folder = Path(f"{hub_dir}/{architecture}_{append}/")
 
@@ -138,7 +143,7 @@ criterion = nn.CrossEntropyLoss(weight=class_weights.to(device), reduction="mean
 # {"params": model.classifier.parameters(), "lr": 1},
 # ]
 
-model.epochs = 15
+model.epochs = 30
 model.model_folder = model_folder
 model.learning_rate = 1e-5
 model.weight_decay = 0  # 1e-8

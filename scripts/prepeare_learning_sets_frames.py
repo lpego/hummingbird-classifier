@@ -22,11 +22,9 @@ from joblib import Parallel, delayed
 ## MORE NEGATIVES (2x)
 FREQ = 38  # for all
 PARALLEL = True  # make video frame extraction in parallel on CPU
-data_subfolder = "more_negatives"
+data_subfolder = "negatives_from_annotated"
 
 # %%
-
-
 def transform_path_to_name(fpath):
     """
         transforms the PosixPath path of a frame in the dropbox dump in a comprehensive filename.  
@@ -60,7 +58,7 @@ def extract_frames_from_video(save_fold, video, FREQ):
 
 # %%
 root_f = Path("/data/shared/hummingbird-classifier")
-vid_path = Path(f"/data/shared/raw-video-import/data/RECODED_HummingbirdVideo/")
+vid_path = Path(f"/data/shared/raw-video-import/data/RECODED_AnnotatedVideos/")
 
 # 1) get all the videos that end in _01, as same name corresponds same location / video
 videos = list(vid_path.glob("**/*_01.avi"))
