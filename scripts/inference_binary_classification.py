@@ -128,7 +128,7 @@ criterion = nn.CrossEntropyLoss(weight=class_weights.to(device),reduce="mean")
 # make curves 
 import pandas as pd
 cur = pd.read_table("../outputs/curves.txt", header=None)
-nd = pd.DataFrame(index=range(30),columns=["tloss", "accuracz"])
+nd = pd.DataFrame(index=range(30),columns=["tloss", "accuracy"])
 
 # track_learning = {}
 # track_learning["trn"] = {}

@@ -63,7 +63,7 @@ for vi, video in enumerate(videos[:1]):
     probe = ffmpeg.probe(video)
     n_frames = int(probe["streams"][0]["nb_frames"])
     w, h = int(probe["streams"][0]["width"]), int(probe["streams"][0]["height"])
-
+ 
     out_flow_videos = Path(
         f"/data/shared/hummingbird-classifier/outputs/diff_videos/{video.name[:-4]}_optical_flow.avi"
     )
