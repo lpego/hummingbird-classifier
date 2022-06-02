@@ -21,9 +21,11 @@ from joblib import Parallel, delayed
 # FREQ = 33 # for unique videos
 # FREQ = 75  # for all
 ## MORE NEGATIVES (2x)
-PARALLEL = True  # make video frame extraction in parallel on CPU
-data_subfolder = "same_camera"  # annotated_videos
-
+vid_pars = {
+    "FREQ": {"trn": 110, "val": 190, "tst": 30},  # for all videos (1/100 of frames)
+    "PARALLEL": True,  # make video frame extraction in parallel on CPU
+    "data_subfolder": "balanced_classes_same_locations",
+}
 # %%
 def transform_path_to_name(fpath):
     """
@@ -58,20 +60,21 @@ def extract_frames_from_video(save_fold, video, FREQ):
 
 # %%
 root_f = Path("/data/shared/hummingbird-classifier")
-vid_path = Path(f"/data/shared/raw-video-import/data/RECODED_HummingbirdVideo/")
+# vid_path = Path(f"/data/shared/raw-video-import/data/RECODED_HummingbirdVideo/")
+vid_path = Path("/data/shared/raw-video-import/data/")
+
 # vid_path = Path(f"/data/shared/raw-video-import/data/RECODED_AnnotatedVideos/")
 
 # 1) get all the videos that end in _01 and _02 or _03
-trv = list(vid_path.glob("**/*_01.avi"))
+trv = list(vid_path.glob("RECODED_*/*_01.avi"))
 trv.sort()
-vav = list(vid_path.glob("**/*_02.avi"))
+vav = list(vid_path.glob("RECODED_*/*_02.avi"))
 vav.sort()
-tsv = list(vid_path.glob("**/*_03.avi"))
+tsv = list(vid_path.glob("RECODED_*/*_03.avi"))
 tsv.sort()
 # vav.extend(tsv)
 
 # 2) cross check that filenames are present in both sets and remove those whithout correspondance
-
 tr_n = [a.name[:-7] for a in trv]
 va_n = [a.name[:-7] for a in vav]
 ts_n = [a.name[:-7] for a in tsv]
@@ -98,20 +101,30 @@ for vicand in vav[::-1]:
 vids_learn_set = {
     "trn": {
         "vids": trv,
-        "folder": Path(f"{root_f}/data/{data_subfolder}/training_set/class_0/"),
-        "freq": 50,  # HummingbirdVideos 50: Positives for the training: 19k. This gives 20k negatives
+        "folder": Path(
+            f"{root_f}/data/{vid_pars['data_subfolder']}/training_set/class_0/"
+        ),
+        "freq": vid_pars["FREQ"][
+            "trn"
+        ],  # HummingbirdVideos 50: Positives for the training: 19k. This gives 20k negatives
         # AnnotatedVideos: 35
     },
     "val": {
         "vids": vav,
-        "folder": Path(f"{root_f}/data/{data_subfolder}/validation_set/class_0/"),
-        "freq": 80,  # HummingbirdVideos 80: Positives for the validation: 6.5k. This gives 6.5k negatives
+        "folder": Path(
+            f"{root_f}/data/{vid_pars['data_subfolder']}/validation_set/class_0/"
+        ),
+        "freq": vid_pars["FREQ"][
+            "val"
+        ],  # HummingbirdVideos 80: Positives for the validation: 6.5k. This gives 6.5k negatives
         # AnnotatedVideos: 100
     },
     "tst": {
         "vids": tsv,
-        "folder": Path(f"{root_f}/data/{data_subfolder}/test_set/class_0/"),
-        "freq": 75,  # HummingbirdVideos 75: Positives for the test: 6.5k. This gives 6.3k negatives
+        "folder": Path(f"{root_f}/data/{vid_pars['data_subfolder']}/test_set/class_0/"),
+        "freq": vid_pars["FREQ"][
+            "tst"
+        ],  # HummingbirdVideos 75: Positives for the test: 6.5k. This gives 6.3k negatives
         # AnnotatedVideos: 100
     },
 }
@@ -126,7 +139,7 @@ print(f"total: total repeated videos {len(tsv) + len(vav) + len(trv)}")
 ## TODO: use for testing the videos with annotations.
 
 learning_sets = ["trn", "val", "tst"]
-if PARALLEL:
+if vid_pars["PARALLEL"]:
     pool = Parallel(n_jobs=8, verbose=1, backend="threading")
 
 for l_set in learning_sets:
@@ -136,7 +149,7 @@ for l_set in learning_sets:
     videos = vids_learn_set[l_set]["vids"]
     print(f"{l_set}: {vids_learn_set[l_set]['freq']}")
     # print(f"{l_set} :: {len(videos)}")
-    if PARALLEL:
+    if vid_pars["PARALLEL"]:
         pool(
             delayed(extract_frames_from_video)(
                 save_fold, vid, vids_learn_set[l_set]["freq"]
@@ -152,70 +165,73 @@ for l_set in learning_sets:
 # i) read Interactions_corrected.csv and filter by "file_exists == True"
 # ii) group data by "waypoint", but could also be "site"
 # iii) ensure no image from the same grouping variable is included in more than one learning set. The initial waypoint splitting is mixed at random (as videos in the sections above)
-if 0:
-    root_destination = Path("/data/users/michele/hummingbird-classifier")
-    root_origin = Path("/data/shared/raw-data-import/data/raw-hierarchy/")
-    annotation_file = Path(
-        "/data/shared/raw-data-import/data/annotations/Interactions_corrected.csv"
-    )
-    annotations = pd.read_csv(annotation_file)
-    annotations = annotations.loc[annotations.file_exists, :]
+root_destination = Path("/data/users/michele/hummingbird-classifier")
+root_origin = Path("/data/shared/raw-data-import/data/raw-hierarchy/")
+annotation_file = Path(
+    "/data/shared/raw-data-import/data/annotations/Interactions_corrected.csv"
+)
+annotations = pd.read_csv(annotation_file)
+annotations = annotations.loc[annotations.file_exists, :]
 
-    sites, counts = np.unique(annotations.waypoint.astype(str), return_counts=True)
+sites, counts = np.unique(annotations.waypoint.astype(str), return_counts=True)
 
-    np.random.seed(42)
-    rand_ind_list = np.random.permutation(np.arange(len(sites)))
-    sites = sites[rand_ind_list]
-    counts = counts[rand_ind_list]
+np.random.seed(42)
+rand_ind_list = np.random.permutation(np.arange(len(sites)))
+sites = sites[rand_ind_list]
+counts = counts[rand_ind_list]
 
-    perc_counts = np.cumsum(counts) / np.sum(counts)
+perc_counts = np.cumsum(counts) / np.sum(counts)
 
-    trv = sites[perc_counts < 0.6]
-    vav = sites[(perc_counts >= 0.6) & ((perc_counts < 0.8))]
-    tsv = sites[perc_counts > 0.8]
+trv = sites[perc_counts < 0.6]
+vav = sites[(perc_counts >= 0.6) & ((perc_counts < 0.8))]
+tsv = sites[perc_counts > 0.8]
 
-    stills_learn_set = {
-        "trn": {
-            "sites": trv,
-            "folder": Path(f"{root_f}/data/{data_subfolder}/training_set/class_1/"),
-        },
-        "val": {
-            "sites": vav,
-            "folder": Path(f"{root_f}/data/{data_subfolder}/validation_set/class_1/"),
-        },
-        "tst": {
-            "sites": tsv,
-            "folder": Path(f"{root_f}/data/{data_subfolder}/test_set/class_1/"),
-        },
-    }
+stills_learn_set = {
+    "trn": {
+        "sites": trv,
+        "folder": Path(
+            f"{root_f}/data/{vid_pars['data_subfolder']}/training_set/class_1/"
+        ),
+    },
+    "val": {
+        "sites": vav,
+        "folder": Path(
+            f"{root_f}/data/{vid_pars['data_subfolder']}/validation_set/class_1/"
+        ),
+    },
+    "tst": {
+        "sites": tsv,
+        "folder": Path(f"{root_f}/data/{vid_pars['data_subfolder']}/test_set/class_1/"),
+    },
+}
 
-    print(f"{len(sites)} sites from {annotation_file}")
-    # %%
+print(f"{len(sites)} sites from {annotation_file}")
+# %%
 
-    # split still frames in the data dump into training, validation and test.
-    learning_sets = ["trn", "val", "tst"]
+# split still frames in the data dump into training, validation and test.
+learning_sets = ["trn", "val", "tst"]
 
-    for l_set in learning_sets:
-        save_fold = stills_learn_set[l_set]["folder"]
-        save_fold.mkdir(exist_ok=True, parents=True)
+for l_set in learning_sets:
+    save_fold = stills_learn_set[l_set]["folder"]
+    save_fold.mkdir(exist_ok=True, parents=True)
 
-        stills = stills_learn_set[l_set]["sites"]
+    stills = stills_learn_set[l_set]["sites"]
 
-        for i, site in enumerate(stills[:]):
+    for i, site in enumerate(stills[:]):
 
-            data_bag = annotations.fullpath_pre[annotations.waypoint == site]
+        data_bag = annotations.fullpath_pre[annotations.waypoint == site]
 
-            for image in data_bag:
-                fname = transform_path_to_name(image)
-                # copy-paste image to destination
-                # print(i, site, image, fname)
-                copyfile(
-                    root_origin / image,
-                    root_destination / stills_learn_set[l_set]["folder"] / fname,
-                )
+        for image in data_bag:
+            fname = transform_path_to_name(image)
+            # copy-paste image to destination
+            # print(i, site, image, fname)
+            copyfile(
+                root_origin / image,
+                root_destination / stills_learn_set[l_set]["folder"] / fname,
+            )
 
 # %% verify sizes
-root = Path(f"{root_f}/data/{data_subfolder}")
+root = Path(f"{root_f}/data/{vid_pars['data_subfolder']}")
 paths = ["training_set", "validation_set", "test_set"]
 
 for fold in paths:

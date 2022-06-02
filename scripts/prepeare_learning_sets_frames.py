@@ -19,11 +19,12 @@ from joblib import Parallel, delayed
 ## BALANCED
 # FREQ = 33 # for unique videos
 # FREQ = 75  # for all
-## MORE NEGATIVES (2x)
-FREQ = 38  # for all
-PARALLEL = True  # make video frame extraction in parallel on CPU
-data_subfolder = "negatives_from_annotated"
-
+## MORE NEGATIVES (2x)\
+vid_pars = {
+    "FREQ": {"trn": 85, "val": 100, "tst": 210},  # for all videos (1/100 of frames)
+    "PARALLEL": True,  # make video frame extraction in parallel on CPU
+    "data_subfolder": "balanced_classes_different_locations",
+}
 # %%
 def transform_path_to_name(fpath):
     """
@@ -39,6 +40,7 @@ def extract_frames_from_video(save_fold, video, FREQ):
         function to extract frames with frequency `FREQ` (type: int) from the video at path `video` (type: PosixPath), and save frames as jpg at path `save_fold` (type: PosixPath). 
     """
     probe = ffmpeg.probe(video)
+    # print(probe["format"]["filename"])
     n_frames = int(probe["streams"][0]["nb_frames"])
 
     vname = str(video).split("/")[-1][:-4]
@@ -58,12 +60,12 @@ def extract_frames_from_video(save_fold, video, FREQ):
 
 # %%
 root_f = Path("/data/shared/hummingbird-classifier")
-vid_path = Path(f"/data/shared/raw-video-import/data/RECODED_AnnotatedVideos/")
+vid_path = Path("/data/shared/raw-video-import/data/")
 
 # 1) get all the videos that end in _01, as same name corresponds same location / video
-videos = list(vid_path.glob("**/*_01.avi"))
+videos = list(vid_path.glob("RECODED_*/*_01.avi"))
 videos.sort()
-
+# %%
 trs, vas, tss = int(0.6 * len(videos)), int(0.2 * len(videos)), int(0.2 * len(videos))
 
 np.random.seed(42)
@@ -76,21 +78,21 @@ tsv = videos[(trs + vas) :]
 tem_ = trv.copy()
 trvf = []
 for vv in tem_:
-    vi = list(vid_path.glob(f"**/{vv.name[:-6]}*"))
+    vi = list(vv.parents[0].glob(f"{vv.name[:-6]}*"))
     for v in vi:
         trvf.append(v)
 
 tem_ = vav.copy()
 vavf = []
 for vv in tem_:
-    vi = list(vid_path.glob(f"**/{vv.name[:-6]}*"))
+    vi = list(vv.parents[0].glob(f"{vv.name[:-6]}*"))
     for v in vi:
         vavf.append(v)
 
 tem_ = tsv.copy()
 tsvf = []
 for vv in tem_:
-    vi = list(vid_path.glob(f"**/{vv.name[:-6]}*"))
+    vi = list(vv.parents[0].glob(f"{vv.name[:-6]}*"))
     for v in vi:
         tsvf.append(v)
 
@@ -98,15 +100,22 @@ for vv in tem_:
 vids_learn_set = {
     "trn": {
         "vids": trvf,
-        "folder": Path(f"{root_f}/data/{data_subfolder}/training_set/class_0/"),
+        "folder": Path(
+            f"{root_f}/data/{vid_pars['data_subfolder']}/training_set/class_0/"
+        ),
+        "freq": vid_pars["FREQ"]["trn"],
     },
     "val": {
         "vids": vavf,
-        "folder": Path(f"{root_f}/data/{data_subfolder}/validation_set/class_0/"),
+        "folder": Path(
+            f"{root_f}/data/{vid_pars['data_subfolder']}/validation_set/class_0/"
+        ),
+        "freq": vid_pars["FREQ"]["val"],
     },
     "tst": {
         "vids": tsvf,
-        "folder": Path(f"{root_f}/data/{data_subfolder}/test_set/class_0/"),
+        "folder": Path(f"{root_f}/data/{vid_pars['data_subfolder']}/test_set/class_0/"),
+        "freq": vid_pars["FREQ"]["tst"],
     },
 }
 print(f"trn: unique {len(trv)}, total: {len(trvf)} videos from {vid_path}")
@@ -115,15 +124,14 @@ print(f"tst: unique {len(tsv)}, total: {len(tsvf)} videos from {vid_path}")
 print(
     f"total: unique {len(tsv) + len(vav) + len(trv)}, total: {len(tsvf) + len(vavf) + len(trvf)} videos from {vid_path}"
 )
-
+# print(vids_learn_set)
 # %% NOW THE LOOPS ARE PARALLEL but have to check wether they work as supposed
 
 # split videos in training, validation and test.
 ## TODO: use for testing the videos with annotations.
 
-
 learning_sets = ["trn", "val", "tst"]
-if PARALLEL:
+if vid_pars["PARALLEL"]:
     pool = Parallel(n_jobs=8, verbose=1, backend="threading")
 
 for l_set in learning_sets:
@@ -133,11 +141,16 @@ for l_set in learning_sets:
     videos = vids_learn_set[l_set]["vids"]
 
     # print(f"{l_set} :: {len(videos)}")
-    if PARALLEL:
-        pool(delayed(extract_frames_from_video)(save_fold, vid, FREQ) for vid in videos)
+    if vid_pars["PARALLEL"]:
+        pool(
+            delayed(extract_frames_from_video)(
+                save_fold, vid, vids_learn_set[l_set]["freq"]
+            )
+            for vid in videos
+        )
     else:
         for i, video in enumerate(videos[:]):
-            extract_frames_from_video(save_fold, video, FREQ)
+            extract_frames_from_video(save_fold, video, vids_learn_set[l_set]["freq"])
 
 # %% Prepare positive frames
 # Split frames according to their geo location.
@@ -169,15 +182,19 @@ tsv = sites[perc_counts > 0.8]
 stills_learn_set = {
     "trn": {
         "sites": trv,
-        "folder": Path(f"{root_f}/data/{data_subfolder}/training_set/class_1/"),
+        "folder": Path(
+            f"{root_f}/data/{vid_pars['data_subfolder']}/training_set/class_1/"
+        ),
     },
     "val": {
         "sites": vav,
-        "folder": Path(f"{root_f}/data/{data_subfolder}/validation_set/class_1/"),
+        "folder": Path(
+            f"{root_f}/data/{vid_pars['data_subfolder']}/validation_set/class_1/"
+        ),
     },
     "tst": {
         "sites": tsv,
-        "folder": Path(f"{root_f}/data/{data_subfolder}/test_set/class_1/"),
+        "folder": Path(f"{root_f}/data/{vid_pars['data_subfolder']}/test_set/class_1/"),
     },
 }
 
@@ -207,14 +224,14 @@ for l_set in learning_sets:
             )
 
 # %% verify sizes
-root = Path("/data/users/michele/hummingbird-classifier/data")
+root = Path("/data/shared/hummingbird-classifier/data") / vid_pars["data_subfolder"]
 paths = ["training_set", "validation_set", "test_set"]
 
 for fold in paths:
     fdir = root / fold
     for class_dir in fdir.iterdir():
         n_files = len(list(class_dir.glob("*.jpg")))
-        print(f"{fold}, {class_dir.name}, {n_files}")
+        print(f"{root}, {fold}, {class_dir.name}, {n_files}")
 
 
 # %%

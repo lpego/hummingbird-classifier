@@ -32,7 +32,8 @@ hub_dir = Path(f"/data/shared/hummingbird-classifier/models/").resolve()
 torch.hub.set_dir(hub_dir)
 
 print(f"current torch hub directory: {torch.hub.get_dir()}")
-# %% # %%
+
+# %%
 BSIZE = 32
 set_type = "annotated_videos"  # "balanced", "more_negatives", "same_camera"
 dir_dict_trn = {

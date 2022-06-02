@@ -51,10 +51,9 @@ def train_model(
     for epoch in range(num_epochs):
         print(f"Epoch {epoch+1}/{num_epochs}")
         print("-" * 10)
-
+        sched = False
         # Each epoch has a training and validation phase
         for phase in ["trn", "val"]:
-
             n_batches = len(dataloaders[phase])
             batch_size = dataloaders[phase].batch_size
             n_data = batch_size * n_batches
@@ -88,14 +87,17 @@ def train_model(
                     _, preds = torch.max(outputs, 1)
                     loss = criterion(outputs, labels)
 
+                    # statistics
+                    running_corrects += torch.sum(preds == labels.data)
+
                     # backward + optimize only if in training phase
                     if phase == "trn":
                         loss.backward()
                         optimizer.step()
 
-                # statistics
-                running_loss += loss.item()  # * inputs.size(0)
-                running_corrects += torch.sum(preds == labels.data)
+                    running_loss += loss.item()  # * inputs.size(0)
+                    # if phase == "val":
+                    #     running_loss += loss.item()  # * inputs.size(0)
 
                 if STORE_PREDS:
                     yhat = torch.cat((yhat, preds.cpu()))
@@ -107,8 +109,12 @@ def train_model(
                     end="\r",
                 )
 
-            if phase == "trn":
-                scheduler.step()
+            if phase == "val":
+                running_val_loss = running_loss
+                sched = True
+
+            if (phase == "trn") and sched:
+                scheduler.step(running_val_loss)
 
             epoch_loss = running_loss / n_batches
             epoch_acc = running_corrects.cpu().numpy() / n_data

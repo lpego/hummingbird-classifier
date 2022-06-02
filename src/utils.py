@@ -1,5 +1,8 @@
 from torchvision import models, transforms
 
+from pathlib import Path
+import yaml
+
 import torch.nn as nn
 
 
@@ -86,3 +89,22 @@ def read_pretrained_model(architecture, n_class):
             param.requires_grad = True
 
     return model
+
+
+def find_checkpoints(dirs=Path("lightning_logs"), version=None, log="val"):
+    """
+        dirs: *Path where the logs are. 
+        version: version of log to read. Default is the last one
+        log: e.g. "val" or "last": whether to read best val model or just last one from trn 
+    """
+
+    if version:
+        ch_sf = list(dirs.glob(f"{version}/checkpoints/*.ckpt"))
+    else:  # pick last
+        ch_sp = [a.parents[1] for a in dirs.glob("**/*.ckpt")]
+        ch_sp.sort()
+        ch_sf = list(ch_sp[-1].glob("**/*.ckpt"))
+
+    chkp = [a for a in ch_sf if log in str(a.name)]
+
+    return chkp
