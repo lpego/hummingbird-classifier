@@ -19,7 +19,7 @@ import pytorch_lightning as pl
 from torch.utils.data import DataLoader
 # from torchmetrics import Accuracy, F1Score, ConfusionMatrix
 from torchvision import transforms
-from torchmetrics import F1Score, PrecisionRecallCurve, ROC
+from torchmetrics import F1Score, PrecisionRecallCurve, ROC, ConfusionMatrix
 from sklearn.metrics import classification_report
 
 from matplotlib import pyplot as plt
@@ -32,13 +32,15 @@ else:
     prefix = "../"  # or "../"
     
 sys.path.append(f"{prefix}src")
-from utils import read_pretrained_model, find_checkpoints
 
+# from src.utils import read_pretrained_model, find_checkpoints
+
+from utils import read_pretrained_model, find_checkpoints
 from HummingbirdLoader_v2 import HummingbirdLoader, Denormalize
 from HummingbirdLitModel import HummingbirdModel
 
 # %% 
-dirs = find_checkpoints(Path(f"{prefix}lightning_logs"), version="version_5", log="last")#.glob("**/*.ckpt"))
+dirs = find_checkpoints(Path(f"{prefix}lightning_logs"), version="version_6", log="last")#.glob("**/*.ckpt"))
 
 mod_path = dirs[-1]
 
@@ -55,14 +57,14 @@ model.data_dir= f"{prefix}{model.data_dir}"
 # model.batch_size=128
 # model.weight_decay=0
 
-torch.set_grad_enabled(False)
+torch.set_grad_enabled(False)   
 model.eval()
 
 print(model.data_dir)
 # %% 
 # dataloader = model.val_dataloader()
-# dataloader = model.tst_dataloader()
-dataloader = model.train_dataloader(shuffle=False)
+dataloader = model.tst_dataloader()
+# dataloader = model.train_dataloader(shuffle=False)
 # dataloader = model.tst_external_dataloader(path="/data/shared/frame-diff-anomaly/data/FH502_02/")
 
 # FH102_02  FH109_02  FH207_02  FH308_01  FH403_01  FH408_02  FH503_01  FH508_01  FH509_02  FH603_01  FH608_01  FH707_01  FH802_02 FH107_01  FH202_02  FH303_01  FH402_01  FH403_02  FH502_01  FH507_01  FH508_02  FH602_01  FH603_02  FH703_02  FH707_02  FH803_01 FH108_01  FH207_01  FH303_02  FH402_02  FH408_01  FH502_02  FH507_02  FH509_01  FH602_02  FH604_01  FH706_01  FH802_01
@@ -73,6 +75,8 @@ pbar_cb = pl.callbacks.progress.TQDMProgressBar(refresh_rate=5)
 trainer = pl.Trainer(
     gpus=1, #[0,1],
     callbacks=[pbar_cb],
+    enable_checkpointing=False,
+    logger=False
 )
 
 outs = trainer.predict(model=model, dataloaders=[dataloader], return_predictions=True)
@@ -130,16 +134,15 @@ if 1:
 
 
 print(classification_report(pc[:,1] > 0.5, gc))
-
-
+print(ConfusionMatrix(num_classes=2)(torch.tensor(pc), torch.tensor(gc)).numpy())
 # %% 
-if 1: 
+if 0: 
     # this needs to be ordered
     files = dataloader.dataset.img_paths.copy()
 
-    yy = np.argsort(pc[:,1])
+    yy = np.argsort(-pc[:,1])
 
-    sub_ind = (pc[yy,1] < 0.25) & (gc[yy] == 1)
+    sub_ind = (pc[yy,0] > 0.75) & (gc[yy] == 1)
     # sub_ind = (pc[yy,1] > 0.7)
 
     # sub_ind = np.where(sub_ind)[0]

@@ -61,10 +61,10 @@ if __name__ == "__main__":
     # %%
     model = HummingbirdModel(
         data_dir=f"{prefix}data/balanced_classes_different_locations/",
-        pretrained_network="resnet50",
-        learning_rate=1e-4,  # was 5 in v6
+        pretrained_network="vit16",
+        learning_rate=1e-5,  # was 5 in v6
         batch_size=128,
-        weight_decay=0,
+        weight_decay=1e-8,
         num_workers_loader=16,
     )
 
