@@ -40,7 +40,7 @@ from HummingbirdLoader_v2 import HummingbirdLoader, Denormalize
 from HummingbirdLitModel import HummingbirdModel
 
 # %% 
-dirs = find_checkpoints(Path(f"{prefix}lightning_logs"), version="version_6", log="last")#.glob("**/*.ckpt"))
+dirs = find_checkpoints(Path(f"{prefix}lightning_logs"), version="version_8", log="last")#.glob("**/*.ckpt"))
 
 mod_path = dirs[-1]
 
@@ -62,8 +62,8 @@ model.eval()
 
 print(model.data_dir)
 # %% 
-# dataloader = model.val_dataloader()
-dataloader = model.tst_dataloader()
+dataloader = model.val_dataloader()
+# dataloader = model.tst_dataloader()
 # dataloader = model.train_dataloader(shuffle=False)
 # dataloader = model.tst_external_dataloader(path="/data/shared/frame-diff-anomaly/data/FH502_02/")
 
@@ -142,7 +142,7 @@ if 0:
 
     yy = np.argsort(-pc[:,1])
 
-    sub_ind = (pc[yy,0] > 0.75) & (gc[yy] == 1)
+    sub_ind = (pc[yy,0] > 0.75) & (gc[yy] == 0)
     # sub_ind = (pc[yy,1] > 0.7)
 
     # sub_ind = np.where(sub_ind)[0]

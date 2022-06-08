@@ -64,7 +64,7 @@ if __name__ == "__main__":
         pretrained_network="vit16",
         learning_rate=1e-5,  # was 5 in v6
         batch_size=128,
-        weight_decay=1e-8,
+        weight_decay=0,
         num_workers_loader=16,
     )
 
@@ -73,7 +73,7 @@ if __name__ == "__main__":
     cbacks = [pbar_cb, best_val_cb, last_mod_cb]
     trainer = Trainer(
         gpus=-1,  # [0,1],
-        max_epochs=75,
+        max_epochs=250,
         strategy=DDPStrategy(find_unused_parameters=False),
         precision=16,
         callbacks=cbacks,
