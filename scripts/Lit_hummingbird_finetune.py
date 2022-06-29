@@ -2,28 +2,27 @@
 # %load_ext autoreload
 # %autoreload 2
 
-import os, sys, time, copy
+import os, sys
 
 os.environ["MKL_THREADING_LAYER"] = "GNU"
 
-import numpy as np
+# import numpy as np
+# from pathlib import Path
+# from PIL import Image
+# import datetime
 
-from pathlib import Path
-from PIL import Image
-import datetime
-
-# from pytorch_lightning.plugins import DDPPlugin
-from pytorch_lightning.strategies.ddp import DDPStrategy
-
-import torch
+# import torch
 import pytorch_lightning as pl
+from pytorch_lightning.loggers import TensorBoardLogger, WandbLogger
 
-from pytorch_lightning import LightningModule, Trainer
-from torch import nn
-from torch.nn import functional as F
-from torch.utils.data import DataLoader, random_split
-from torchmetrics import Accuracy, F1Score, ConfusionMatrix
-from torchvision import transforms
+from pytorch_lightning.strategies.ddp import DDPStrategy
+from pytorch_lightning import Trainer #, LightningModule 
+
+# from torch import nn
+# from torch.nn import functional as F
+# from torch.utils.data import DataLoader, random_split
+# from torchmetrics import Accuracy, F1Score, ConfusionMatrix
+# from torchvision import transforms
 
 try:
     __IPYTHON__
@@ -33,14 +32,16 @@ else:
     prefix = "../"  # or "../"
 
 sys.path.append(f"{prefix}src")
-from utils import read_pretrained_model
-
+# from utils import read_pretrained_model
 # from HummingbirdLoader import HeronLoader, Denormalize
 from HummingbirdLitModel import HummingbirdModel
 
 # %%
 if __name__ == "__main__":
-
+    # scripts/Lit_hummingbird_finetune.py --batch_size=185 --data_dir=data/bal_cla_diff_loc_all_vid/ 
+    # --learning_rate=0.00010856749693422446 
+    # --num_workers_loader=20 --pretrained_network=resnet18
+    
     # Define checkpoints callbacks
     # best model on validation
     best_val_cb = pl.callbacks.ModelCheckpoint(
@@ -60,9 +61,11 @@ if __name__ == "__main__":
 
     # %%
     model = HummingbirdModel(
-        data_dir=f"{prefix}data/balanced_classes_different_locations/",
-        pretrained_network="vit16",
-        learning_rate=1e-5,  # was 5 in v6
+        pos_data_dir=f"{prefix}data/bal_cla_diff_loc_all_vid/", # bal_cla_diff_loc_all_vid/", "double_negs_bal_cla_diff_loc_all_vid/"
+        neg_data_dir=f"{prefix}data/plenty_negs_all_vid/", # bal_cla_diff_loc_all_vid/", "double_negs_bal_cla_diff_loc_all_vid/"
+
+        pretrained_network="resnet50",
+        learning_rate=1e-6,  # was 5 in v6
         batch_size=128,
         weight_decay=0,
         num_workers_loader=16,
@@ -71,14 +74,20 @@ if __name__ == "__main__":
     # %%
 
     cbacks = [pbar_cb, best_val_cb, last_mod_cb]
+    wb_logger = WandbLogger(project='hummingbirds-pil')
+    wb_logger.watch(model, log='all')
+    # TensorBoardLogger("tb_logs", name="")
+
     trainer = Trainer(
         gpus=-1,  # [0,1],
-        max_epochs=250,
+        max_epochs=20,
         strategy=DDPStrategy(find_unused_parameters=False),
         precision=16,
         callbacks=cbacks,
-        auto_lr_find=False,  # change it for new _v6 or _v7
-        auto_scale_batch_size=True,
+        auto_lr_find=False,  # 
+        auto_scale_batch_size=False,
+        logger = wb_logger, 
+        replace_sampler_ddp=False
         # profiler="simple",
     )
 

@@ -41,10 +41,10 @@ def read_pretrained_model(architecture, n_class):
 
         # Freeze base feature extraction trunk:
         for param in model.parameters():
-            param.requires_grad = False
+            param.requires_grad = True
 
         for param in model.fc.parameters():
-            param.requires_grad = True
+           param.requires_grad = True
 
     elif architecture == "resnet50":
 
@@ -55,10 +55,10 @@ def read_pretrained_model(architecture, n_class):
 
         # Freeze base feature extraction trunk:
         for param in model.parameters():
-            param.requires_grad = False
-
-        for param in model.fc.parameters():
             param.requires_grad = True
+
+        # for param in model.fc.parameters():
+        #     param.requires_grad = True
 
     elif architecture == "densenet161":
 
@@ -116,8 +116,11 @@ def read_pretrained_model(architecture, n_class):
 
         for param in model.heads.head.parameters():
             param.requires_grad = True
+    elif architecture == "convnext_small":
+        model = models.vit_b_16(pretrained=True)
 
     else:
+
         raise OSError("Model not found")
 
     return model
