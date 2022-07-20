@@ -68,7 +68,7 @@ def read_pretrained_model(architecture, n_class):
         )
 
         for param in model.parameters():
-            param.requires_grad = False
+            param.requires_grad = True
 
         for param in model.classifier.parameters():
             param.requires_grad = True
@@ -88,7 +88,7 @@ def read_pretrained_model(architecture, n_class):
         for param in model.classifier[1].parameters():
             param.requires_grad = True
 
-    elif architecture == "efficientnet_b2":  # NEED LATEST VERSION OF TORCH STUFF
+    elif architecture == "efficientnet_b2":
         model = models.efficientnet_b2(pretrained=True)
         model.classifier[1] = nn.Linear(
             in_features=model.classifier[1].in_features,

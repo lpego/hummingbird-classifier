@@ -53,6 +53,7 @@ class HummingbirdModel(pl.LightningModule):
         batch_size=32,
         weight_decay=1e-8,
         num_workers_loader=4,
+        step_size_decay=5
     ):
 
         super().__init__()
@@ -65,6 +66,7 @@ class HummingbirdModel(pl.LightningModule):
         self.weight_decay = weight_decay
         self.batch_size = batch_size
         self.num_workers_loader = num_workers_loader
+        self.step_size_decay = step_size_decay
 
         # Hardcode some dataset specific attributes
         self.num_classes = 2
@@ -96,7 +98,7 @@ class HummingbirdModel(pl.LightningModule):
             ]
         )
 
-        self.transform_tr_n = transforms.Compose(
+        self.transform_tr_n = transforms.Compose( # = self.transform_tr_p
             [
                 CustomCrop((100,1,1180,700), p=1.0),
                 transforms.RandomHorizontalFlip(p=0.5),
@@ -197,7 +199,7 @@ class HummingbirdModel(pl.LightningModule):
             weight_decay=self.weight_decay,
 
         )
-        lr_scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=5, gamma=0.5)
+        lr_scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=self.step_size_decay, gamma=0.5)
         # lr_scheduler = torch.optim.lr_scheduler.MultiStepLR(
             # optimizer, milestones=[10, 20, 50], gamma=0.5
         # )
@@ -242,10 +244,11 @@ class HummingbirdModel(pl.LightningModule):
             dir_dict_trn,
             learning_set="trn",
             ls_inds=[],
-            transforms={
-                "0": self.transform_tr_n, 
-                "1": self.transform_tr_p
-                }, # can load two sets of transforms, one for positives one for negatives
+            transforms=self.transform_tr_n,
+            #     {
+            #     "0": self.transform_tr_n, 
+            #     "1": self.transform_tr_p
+            #     }, # can load two sets of transforms, one for positives one for negatives
         )
 
         # number of draws from the weighted random samples matches the 2 * (n_positive // batch_size) 

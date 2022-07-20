@@ -2,7 +2,7 @@
 %load_ext autoreload
 %autoreload 2
 
-import os, sys #£, time, copy
+import os, sys #time, copy
 
 os.environ['MKL_THREADING_LAYER'] = 'GNU'
 
@@ -10,17 +10,10 @@ import numpy as np
 import pandas as pd
 from pathlib import Path
 from PIL import Image
-# import datetime
 
 import torch
 import pytorch_lightning as pl
-# from pytorch_lightning import Trainer
-# from torch import nn
-# from torch.nn import functional as F
-# from torch.utils.data import DataLoader
-# from torchmetrics import Accuracy, F1Score, ConfusionMatrix
-# from torchvision import transforms
-from torchmetrics import F1Score, PrecisionRecallCurve, ROC, ConfusionMatrix
+# from torchmetrics import F1Score, PrecisionRecallCurve, ROC, ConfusionMatrix
 from sklearn.metrics import classification_report
 
 from matplotlib import pyplot as plt
@@ -73,26 +66,41 @@ model.neg_data_dir=f"{prefix}data/plenty_negs_all_vid/" # bal_cla_diff_loc_all_v
 model.eval()
 
 print(f"Positive data dir: {model.pos_data_dir}, negative data dir: {model.neg_data_dir}")
-# %%
-vname = "FH502_02" # "FH109_02"# # "FH502_02"#"FH109_02" # "FH502_02"# "FH803_01" $ THIS ONE PERFECT CHERRY PICK "FH703_02" FH207_01
-# dataloader = model.val_dataloader() # FH509_01, FH403_02, FH102_02 the worse FH408_02
-# FH308_01 Wet camera
+# %%mitch85
 
-dataloader = model.tst_dataloader()
-# dataloader = model.train_dataloader(shuffle=True)
+vname = "FH709_01" 
 
-if vname:
-    dataloader = model.tst_external_dataloader(path=f"/data/shared/frame-diff-anomaly/data/{vname}/")
-    annot = pd.read_csv(f"{prefix}data/Weinstein2018MEE_ground_truth.csv").drop_duplicates()
-    annot = annot[annot.Video == vname].sort_values("Frame")
-    annot.Truth = annot.Truth.apply(lambda x: x == "Positive")
-    annot.Frame -= 1
+# ANNOTATED VIDEOS AVAILABLE: 
+# dataloader = model.tst_external_dataloader(path=f"/data/shared/frame-diff-anomaly/data/{vname}/")
 
-# ANNOTATED VIDEOS AVAILABLE
 # FH102_02 FH107_01 FH108_01 FH109_02 FH202_02 FH207_01 FH207_02 FH303_01 FH303_02 FH308_01 
 # FH402_01 FH402_02 FH403_01 FH403_02 FH408_01 FH408_02 FH502_01 FH502_02 FH503_01 FH507_01 
 # FH507_02 FH508_01 FH508_02 FH509_01 FH509_02 FH602_01 FH602_02 FH603_01 FH603_02 FH604_01 
 # FH608_01 FH703_02 FH706_01 FH707_01 FH707_02 FH802_01 FH802_02 FH803_01 
+
+## Non Annotated videos: 
+dataloader = model.tst_external_dataloader(path=f"/data/shared/frame-diff-anomaly/data/no_annotation/{vname}/")
+# --- FH709_01 (HummingbirdParty), FH709_01 (HummingbirdParty 2), FH805_01 (good example with clutter)
+# detected Events: FH101_01, +FH104_01, FH104_BU1, FH105_01 (butterfly? bird?), FH105_02, FH106_01, FH111_01 (1 event), 
+# FH201_01 (1 event), FH205_01 (at least 3 events, then sun reflection), FH205_02, FH209_01, FH304_01, FH304_02, FH304_BU1, 
+# FH304_BU2, FH306_01, FH312_01, FH404_01, FH404_02, FH409_01, FH409_02, FH410_01, FH410_02, FH411_01, FH411_02, FH511_01, 
+# FH511_02, (FH512_01), (FH512_02), FH601_HR_01, FH607_02, FH611_01, +FH704_01, FH708_02, FH801_01, FH801_02, FH804_BU1, FH805_01, 
+# FH808_02
+
+
+# CHECK DEL FOR THOSE
+# unclear (TO BE DELETED): FH104_BU2 (only persons prob), FH105_03 (a dog?), FH110_01 (at least one, but complex video _02 similarly hard), 
+# FH204_BU1 (hard, small birds in few frames), FH211_02 (maybe a couple), FH301_02 (one big, then dark), 
+# FH310_02 (maybe one), FH311_01 (maybe one), FH501_01 (not sure is a bird, 1-2 frames), FH505_01 (probably nothing), 
+# FH505_02 (drop of watr), FH510_02 (1 visit), FH606_01 (1-2 visits), FH607_01 (1 visit), FH701_HR_01 (1 vis), 
+# FH701_HR_02 (1 vis, large bird :)), FH705_01 (1 vis), FH705_02 (1 vis), FH708_01 (1 vis), FH710_02 (1 vis), FH801_03, 
+# FH804_BU2 (uno zoccolo di capra?), FH809_01 (Maybe a couple but lots of wind), FH810_01 (1 vis + unclear glowing orb)
+
+# no events (rm -r): FH101_02, FH106_02, FH109_01, FH111_02, FH112_01, FH112_02, FH201_02, FH201_03, 
+# FH204_01, FH204_BU2, FH206_01, FH209_02, FH211_01, FH301_01, FH305_02, FH306_02, FH310_01, FH311_02,
+# FH312_02, FH401_01, FH401_02, FH405_01, FH405_02, FH501_02, FH506_01 (rain), FH506_02 (rain), FH610_01, 
+# FH610_02, FH611_02, FH704_02, FH704_BU1, FH704_BU2, FH804_01, FH804_02, FH805_02, FH808_01, FH809_02
+
 # %% 
 pbar_cb = pl.callbacks.progress.TQDMProgressBar(refresh_rate=5)
 
@@ -121,59 +129,16 @@ except:
     pc = np.asarray(p)
     gc = np.asarray(gt)
 
-if vname: 
-    gc[annot[annot.Truth].Frame] = 1
+# if vname: 
+#     gc[annot[annot.Truth].Frame] = 1
 
 plt.figure()
 plt.plot(pc[:,1])
-if vname: 
-    plt.scatter(annot[~annot.Truth].Frame, -0*(np.ones(len(annot[~annot.Truth].Frame))), marker="^", color="k")
-    plt.scatter(annot[annot.Truth].Frame, -0*(np.ones(len(annot[annot.Truth].Frame))), marker="^", color="r")
+# if vname: 
+    # plt.scatter(annot[~annot.Truth].Frame, -0*(np.ones(len(annot[~annot.Truth].Frame))), marker="^", color="k")
+    # plt.scatter(annot[annot.Truth].Frame, -0*(np.ones(len(annot[annot.Truth].Frame))), marker="^", color="r")
 plt.grid(True)
 
-# %% 
-if 0: 
-    FR_F = 0
-    TO_F = -1
-
-    # this needs to be ordered
-    files = dataloader.dataset.img_paths.copy()
-
-    yy = np.argsort(-pc[FR_F:TO_F,1])
-
-    plt.figure()
-    plt.plot(pc[FR_F:TO_F,1])
-
-    if vname: 
-        plt.scatter(annot[~annot.Truth].Frame - FR_F, -0*(np.ones(len(annot[~annot.Truth].Frame))), marker="^", color="k")
-        plt.scatter(annot[ annot.Truth].Frame - FR_F, -0*(np.ones(len(annot[annot.Truth].Frame))), marker="^", color="r")
-    plt.grid(True)
-    
-    if 0: 
-        sub_ind = (pc[yy,1] > 0) & (gc[yy] == 1)
-
-        # sub_ind = (pc[yy,1] > 0.7)
-
-        # sub_ind = np.where(sub_ind)[0]
-        # files = files[sub_ind]  
-        ss = yy[sub_ind]  
-        # sub_ind=np.arange(pc.shape[0])
-        # sub_p = pc[:,1]
-        # yy = np.argsort(-sub_p)
-
-        denorm = Denormalize(mean=(0.485, 0.456, 0.406), std=(0.229, 0.224, 0.225))
-        for i, ti in enumerate(ss):
-            if i < 10: 
-                continue
-            fi = files[ti] 
-            x = Image.open(fi).convert("RGB")
-            plt.figure(figsize=(6,6))
-            plt.imshow(x)
-            plt.title(f"{i}, {ti}: yhat {yc[ti]:.2f}, gt {gc[ti]:.2f}, p0 {pc[ti,0]:.2f}, p1 {pc[ti,1]:.2f}\n{fi.name}")
-            plt.show()
-
-            if i > 40:
-                break
 # %% 
 if 1:
     
@@ -202,23 +167,22 @@ if 1:
     else: 
         score = pc[:,inc]
 
-    CLIP = len(score)
-    sortsco = (0.5*score + 0.5*pc[:,inc])[:CLIP]
-    yy = np.argsort(-sortsco[:])
+    FR_F = 0; CLIP = len(score)
+    sortsco = (0.5*score + 0.5*pc[:,inc])[FR_F:CLIP]
+    yy = np.argsort(-sortsco)
 
     sub_ind = (score[yy] > 0)# & (gc[yy] == 1)
-    ss = yy[sub_ind]# + 1 if score is the diff! starts at 1 and not at 0
+    ss = yy[sub_ind] + FR_F# + 1 if score is the diff! starts at 1 and not at 0
 
     plt.figure(figsize=(15,5))
-    plt.title(f"Proba time series, with N_positive = {annot.Truth.sum()}")
+    plt.title(f"Proba time series, with unkown N_positive")
     plt.plot(sortsco, label="agg_score")
-    plt.plot(0.5*pc[:CLIP,1], label="pc")
-    plt.plot(0.5*score[:CLIP], label="diff")
+    plt.plot(0.5*pc[FR_F:CLIP,1], label="pc")
+    plt.plot(0.5*score[FR_F:CLIP], label="diff")
     plt.legend(loc="lower right")
-    FR_F = 0
-    if vname: 
-        plt.scatter(annot[~annot.Truth].Frame - FR_F, 1*(np.ones(len(annot[~annot.Truth].Frame))), marker="v", color="k")
-        plt.scatter(annot[ annot.Truth].Frame - FR_F, 1*(np.ones(len(annot[annot.Truth].Frame))), marker="v", color="r")
+    # if vname: 
+    #     plt.scatter(annot[~annot.Truth].Frame - FR_F, 1*(np.ones(len(annot[~annot.Truth].Frame))), marker="v", color="k")
+    #     plt.scatter(annot[ annot.Truth].Frame - FR_F, 1*(np.ones(len(annot[annot.Truth].Frame))), marker="v", color="r")
     plt.grid(True)
     
     DETECT = 0
@@ -283,101 +247,5 @@ if 1:
         if i > FR+N:
             break
 
-        
-print(f"got {DETECT} out of {annot.Truth.sum()} in {N} frames")
-    # %%
-# TODO
-# Cross tab errors per video source, check if some videos are better modeled 
-# than others for the negative class. 
-
-
-# names = ["_".join(str(f.name).split("_")[:-2]) for f in files]
-# pred_agg = pd.DataFrame({"fname": names, "gt": gc, "yha": yc}) 
-# pred_agg["diff"] = pred_agg["gt"] != pred_agg["yha"]
-
-# group = pred_agg[pred_agg["gt"] == 0].groupby("fname").agg({"gt": "count", "yha": "sum", "diff": "sum"})
-# group["perc"] = group["diff"] / group["gt"]
-# plt.figure()
-# plt.plot(group["perc"]);
-
-
-
-# %% 
-
-if 0:
-    if vname: 
-        pred = pc[annot.Frame,:]
-        grtr = gc[annot.Frame]
-    else: 
-        pred = pc
-        grtr = gc
-
-    fsc = F1Score(num_classes=2)
-    sc = []
-    threshs = np.arange(0.1,1,0.1)
-    for t in threshs:
-        sc.append(fsc(torch.tensor(pc[:,1] > t), torch.tensor(gc)))
-        # print(f"THRESH = {t:.1f}: Acc: {np.sum(pc[:,1] > t):.1f}/{np.sum(gc == 1)}: {np.sum(pc[:,1] > t)/np.sum(gc == 1):.2f}%")
-
-    plt.figure()
-    plt.plot(sc)
-    plt.xticks(np.arange(len(threshs)), [f"{a:.2f}" for a in  threshs]);
-    plt.grid("on")
-    plt.ylabel("F1 Score")
-
-    pr_curve = PrecisionRecallCurve(num_classes=2)
-    precision, recall, thresholds = pr_curve(torch.tensor(pc), torch.tensor(gc))
-    plt.figure()
-    for c in range(2):
-        plt.plot(precision[c], recall[c], label=f"class {c}")
-    plt.grid("on")
-    plt.legend()
-    plt.xlabel("Precision")
-    plt.ylabel("Recall")
-
-    roc = ROC(num_classes=2)
-    fpr, tpr, thresholds = roc(torch.tensor(pc), torch.tensor(gc))
-    plt.figure()
-    for c in range(2):
-        plt.plot(fpr[c], tpr[c], label=f"class {c}")
-    plt.grid("on")
-    plt.legend()
-    plt.xlabel("FPR")
-    plt.ylabel("TPR")
-
-print(classification_report(pc[:,1] > 0.5, gc))
-print(classification_report(sortsco > 0.5, gc))
-print(ConfusionMatrix(num_classes=2)(torch.tensor(pc[:,1]) > 0.5 , torch.tensor(gc)).numpy())
-print(ConfusionMatrix(num_classes=2)(torch.tensor(sortsco) > 0.5, torch.tensor(gc)).numpy())
-
-# %%
-if 0:
-    denorm = Denormalize(mean=(0.485, 0.456, 0.406), std=(0.229, 0.224, 0.225))
-    # dataloader = model.tst_external_dataloader()
-    dataloader = model.train_dataloader()
-    dliter = iter(dataloader)
-    x, y, id = next(dliter)
-    print(x.shape)
-
-    # x = x[0,...]
-    p = torch.softmax(model(x), dim=1)
-    p = p.numpy()
-    for i in range(10):#x.shape[0]):
-        plt.figure()
-        im = x[i,...]   
-        plt.imshow(np.transpose(denorm(im),(1,2,0)))
-        plt.title(f"{p[i,0]:.2f}, {p[i,1]:.2f}")
-
-# %%
-
-# fi = files[49862]
-# im = Image.open(fi).convert("RGB")
-# crop_img = im.crop((200,1,1080,700))
-
-# x = model.transform_tr(im)
-# pl_im = np.transpose(denorm(x.squeeze()),(1,2,0)).numpy()
-
-# f, a = plt.subplots(1,2,figsize=(12,6))
-# a[0].imshow(crop_img)
-# a[1].imshow(pl_im)
+print(f"got {DETECT} in {N} frames")
 # %%

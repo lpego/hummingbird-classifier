@@ -48,7 +48,7 @@ if __name__ == "__main__":
         filename="best-val-{epoch}-{step}-{val_loss:.1f}",
         monitor="val_loss",
         mode="min",
-        save_top_k=3,
+        save_top_k=2,
     )
 
     # latest model in training
@@ -63,24 +63,24 @@ if __name__ == "__main__":
     model = HummingbirdModel(
         pos_data_dir=f"{prefix}data/bal_cla_diff_loc_all_vid/", # bal_cla_diff_loc_all_vid/", "double_negs_bal_cla_diff_loc_all_vid/"
         neg_data_dir=f"{prefix}data/plenty_negs_all_vid/", # bal_cla_diff_loc_all_vid/", "double_negs_bal_cla_diff_loc_all_vid/"
-
-        pretrained_network="resnet50",
-        learning_rate=1e-6,  # was 5 in v6
-        batch_size=128,
-        weight_decay=0,
+        pretrained_network="densenet161", # resnet50
+        learning_rate=5e-7,  # 1e-6
+        batch_size=64,       # 128
+        weight_decay=0,      # 1e-3 
         num_workers_loader=16,
+        step_size_decay = 25
     )
 
     # %%
-
+    name_run = "" #f"{model.pretrained_network}"
     cbacks = [pbar_cb, best_val_cb, last_mod_cb]
-    wb_logger = WandbLogger(project='hummingbirds-pil')
+    wb_logger = WandbLogger(project='hummingbirds-pil', name=name_run if name_run else None)
     wb_logger.watch(model, log='all')
     # TensorBoardLogger("tb_logs", name="")
 
     trainer = Trainer(
         gpus=-1,  # [0,1],
-        max_epochs=20,
+        max_epochs=1000,
         strategy=DDPStrategy(find_unused_parameters=False),
         precision=16,
         callbacks=cbacks,
