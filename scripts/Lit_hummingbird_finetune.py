@@ -64,9 +64,9 @@ if __name__ == "__main__":
         pos_data_dir=f"{prefix}data/bal_cla_diff_loc_all_vid/", # bal_cla_diff_loc_all_vid/", "double_negs_bal_cla_diff_loc_all_vid/"
         neg_data_dir=f"{prefix}data/plenty_negs_all_vid/", # bal_cla_diff_loc_all_vid/", "double_negs_bal_cla_diff_loc_all_vid/"
         pretrained_network="densenet161", # resnet50
-        learning_rate=5e-7,  # 1e-6
-        batch_size=64,       # 128
-        weight_decay=0,      # 1e-3 
+        learning_rate=2.5e-7,   # 1e-6
+        batch_size=64,          # 128
+        weight_decay=0,         # 1e-3 
         num_workers_loader=16,
         step_size_decay = 25
     )

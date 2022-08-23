@@ -44,10 +44,10 @@ from HummingbirdLitModel import HummingbirdModel
 # %% 
 # /data/shared/hummingbird-classifier/hummingbirds-pil/3u92ydow
 # dirs = find_checkpoints(Path(f"{prefix}lightning_logs"), version="version_0", log="last")#.glob("**/*.ckpt"))
-dirs = find_checkpoints(Path(f"{prefix}hummingbirds-pil"), version="3pau0qtg", log="best")#.glob("**/*.ckpt")) 
+dirs = find_checkpoints(Path(f"{prefix}hummingbirds-pil"), version="ixpfqgvo", log="best")#.glob("**/*.ckpt")) 
 
 # THIS WORKS: sfrfhnc3, 24zruk7z DENSENET161: 38tn45xv, 2col29g3, tba 130ch647  
-# || GOOD very very long 3pau0qtg / very long 32tka2n9 / long 22m0pigr / mid bqoy698f / short 23rgsozp
+# || GOOD ixpfqgvo very very long 3pau0qtg / very long 32tka2n9 / long 22m0pigr / mid bqoy698f / short 23rgsozp
 # THIS WORKS LESS WELL: 1zh8fqdf
 # dirs = find_checkpoints(Path(f"{prefix}hummingbirds-pil"), version="24zruk7z", log="last")#.glob("**/*.ckpt"))
 
@@ -74,7 +74,7 @@ model.eval()
 
 print(f"Positive data dir: {model.pos_data_dir}, negative data dir: {model.neg_data_dir}")
 # %%
-vname = "FH502_02" # "FH109_02"# # "FH502_02"#"FH109_02" # "FH502_02"# "FH803_01" $ THIS ONE PERFECT CHERRY PICK "FH703_02" FH207_01
+vname = "FH403_01" # "FH109_02"# # "FH502_02"#"FH109_02" # "FH502_02"# "FH803_01" $ THIS ONE PERFECT CHERRY PICK "FH703_02" FH207_01
 # dataloader = model.val_dataloader() # FH509_01, FH403_02, FH102_02 the worse FH408_02
 # FH308_01 Wet camera
 
