@@ -158,7 +158,7 @@ if 1:
     
     CLIP = len(score_t_diff)
 
-    sort_score = (0.15*score_p_diff + 0.75*pc[:,1] + 0.1*score_t_diff)[:CLIP]
+    sort_score = (0.25*score_p_diff + 0.7*pc[:,1] + 0.05*score_t_diff)[:CLIP]
     sort_frames = np.argsort(-sort_score[:])
 
     if 0: # the heck is that here
@@ -247,21 +247,6 @@ if 1:
 
         
 print(f"got {DETECT} out of {annot.Truth.sum()} in {N} frames")
-    # %%
-# TODO
-# Cross tab errors per video source, check if some videos are better modeled 
-# than others for the negative class. 
-
-
-# names = ["_".join(str(f.name).split("_")[:-2]) for f in files]
-# pred_agg = pd.DataFrame({"fname": names, "gt": gc, "yha": yc}) 
-# pred_agg["diff"] = pred_agg["gt"] != pred_agg["yha"]
-
-# group = pred_agg[pred_agg["gt"] == 0].groupby("fname").agg({"gt": "count", "yha": "sum", "diff": "sum"})
-# group["perc"] = group["diff"] / group["gt"]
-# plt.figure()
-# plt.plot(group["perc"]);
-
 
 
 # %% 
@@ -313,25 +298,6 @@ print(ConfusionMatrix(num_classes=2)(torch.tensor(pc[:,1]) > 0.5 , torch.tensor(
 print(ConfusionMatrix(num_classes=2)(torch.tensor(sort_score) > 0.5, torch.tensor(gc)).numpy())
 print(ConfusionMatrix(num_classes=2)(torch.tensor(sort_score) > 0.65, torch.tensor(gc)).numpy())
 
-# %%
-if 0:
-    denorm = Denormalize(mean=(0.485, 0.456, 0.406), std=(0.229, 0.224, 0.225))
-    # dataloader = model.tst_external_dataloader()
-    dataloader = model.train_dataloader()
-    dliter = iter(dataloader)
-    x, y, id = next(dliter)
-    print(x.shape)
-
-    # x = x[0,...]
-    p = torch.softmax(model(x), dim=1)
-    p = p.numpy()
-    for i in range(10):#x.shape[0]):
-        plt.figure()
-        im = x[i,...]   
-        plt.imshow(np.transpose(denorm(im),(1,2,0)))
-        plt.title(f"{p[i,0]:.2f}, {p[i,1]:.2f}")
-
-# %%
 
 # fi = files[49862]
 # im = Image.open(fi).convert("RGB")
