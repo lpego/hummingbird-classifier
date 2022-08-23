@@ -152,13 +152,13 @@ if 1:
         print(f"{vname} triplet loss exists already, loading it.")
         score_t_diff = pd.read_csv(fpath)
     score_t_diff = score_t_diff.mag_std.values.astype(float)
-    score_t_diff = (score_diff - score_diff.min())/(score_diff.max() - score_diff.min())
+    score_t_diff = (score_t_diff - score_t_diff.min())/(score_t_diff.max() - score_t_diff.min())
 
     score_p_diff = np.concatenate(([0], np.abs(np.diff(pc[:,1]))))
     
-    CLIP = len(score_diff)
+    CLIP = len(score_t_diff)
 
-    sort_score = (0.0*score_p_diff + 0.75*pc[:,1] + 0.1*score_t_diff)[:CLIP]
+    sort_score = (0.15*score_p_diff + 0.75*pc[:,1] + 0.1*score_t_diff)[:CLIP]
     sort_frames = np.argsort(-sort_score[:])
 
     if 0: # the heck is that here
@@ -307,10 +307,11 @@ if 0:
     plt.xlabel("FPR")
     plt.ylabel("TPR")
 
-print(classification_report(pc[:,1] > 0.5, gc))
-print(classification_report(sort_score > 0.5, gc))
+print(classification_report(gc, pc[:,1] > 0.5))
+print(classification_report(gc, sort_score > 0.5))
 print(ConfusionMatrix(num_classes=2)(torch.tensor(pc[:,1]) > 0.5 , torch.tensor(gc)).numpy())
 print(ConfusionMatrix(num_classes=2)(torch.tensor(sort_score) > 0.5, torch.tensor(gc)).numpy())
+print(ConfusionMatrix(num_classes=2)(torch.tensor(sort_score) > 0.65, torch.tensor(gc)).numpy())
 
 # %%
 if 0:
