@@ -146,7 +146,7 @@ def magnitude_score_v2(impair, pars):
 def main_triplet_difference(folder_frames, save_csv=None):
     num_cores = multiprocessing.cpu_count()
     pool = Parallel(n_jobs=num_cores)
-    print(f"running triplet diff on {num_cores} cores")
+    print(f"Parsing triplet difference of {folder_frames} on {num_cores} cores")
     
     #%  Run on data in all subfolders
     pars = {
@@ -166,7 +166,6 @@ def main_triplet_difference(folder_frames, save_csv=None):
     }
 
     # data_path = f"{prefix}Canopy_Trail1_1st_round/O3_E_up/101_WSCT/"
-    print(f"currently parsing {folder_frames}:")
 
     data_ = list(folder_frames.glob("*.jpg"))
     data_.sort()
