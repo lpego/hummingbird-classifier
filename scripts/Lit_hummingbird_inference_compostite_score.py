@@ -67,9 +67,10 @@ model.eval()
 
 print(f"Positive data dir: {model.pos_data_dir}, negative data dir: {model.neg_data_dir}")
 # %%
-vname = "FH502_02" # "FH109_02"# # "FH502_02"#"FH109_02" # "FH502_02"# "FH803_01" $ THIS ONE PERFECT CHERRY PICK "FH703_02" FH207_01
+vname = "FH803_01" # "FH109_02"# # "FH502_02"#"FH109_02" # "FH502_02"# "FH803_01" 
+#  THESE ONES PERFECT CHERRY PICK FH602_01 FH703_02 FH207_01
 # dataloader = model.val_dataloader() # FH509_01, FH403_02, FH102_02 the worse FH408_02
-# FH308_01 Wet camera
+# FH308_01 Wet camera, 
 
 dataloader = model.tst_dataloader()
 # dataloader = model.train_dataloader(shuffle=True)
@@ -87,12 +88,12 @@ if vname:
 # FH507_02 FH508_01 FH508_02 FH509_01 FH509_02 FH602_01 FH602_02 FH603_01 FH603_02 FH604_01 
 # FH608_01 FH703_02 FH706_01 FH707_01 FH707_02 FH802_01 FH802_02 FH803_01 
 # %% 
-pbar_cb = pl.callbacks.progress.TQDMProgressBar(refresh_rate=5)
+# pbar_cb = pl.callbacks.progress.TQDMProgressBar(refresh_rate=5)
 
 trainer = pl.Trainer(
     max_epochs=1,
     gpus=1, #[0,1],
-    callbacks=[pbar_cb], 
+    # callbacks=[pbar_cb], 
     enable_checkpointing=False,
     logger=False
 )
@@ -148,9 +149,11 @@ if 1:
     fpath = Path(f"/data/shared/frame-diff-anomaly/data/{vname}/_scores_triplet.csv")
     if compute_triplet & (not fpath.is_file()):
         score_t_diff = main_triplet_difference(fpath.parent, save_csv="triplet")
+
     elif fpath.is_file():
         print(f"{vname} triplet loss exists already, loading it.")
         score_t_diff = pd.read_csv(fpath)
+
     score_t_diff = score_t_diff.mag_std.values.astype(float)
     score_t_diff = (score_t_diff - score_t_diff.min())/(score_t_diff.max() - score_t_diff.min())
 
@@ -158,7 +161,7 @@ if 1:
     
     CLIP = len(score_t_diff)
 
-    sort_score = (0.25*score_p_diff + 0.7*pc[:,1] + 0.05*score_t_diff)[:CLIP]
+    sort_score = (0.1*score_p_diff + 0.8*pc[:,1] + 0.1*score_t_diff)[:CLIP]
     sort_frames = np.argsort(-sort_score[:])
 
     if 0: # the heck is that here
@@ -251,7 +254,7 @@ print(f"got {DETECT} out of {annot.Truth.sum()} in {N} frames")
 
 # %% 
 
-if 0:
+if 1:
     if vname: 
         pred = pc[annot.Frame,:]
         grtr = gc[annot.Frame]
@@ -297,6 +300,7 @@ print(classification_report(gc, sort_score > 0.5))
 print(ConfusionMatrix(num_classes=2)(torch.tensor(pc[:,1]) > 0.5 , torch.tensor(gc)).numpy())
 print(ConfusionMatrix(num_classes=2)(torch.tensor(sort_score) > 0.5, torch.tensor(gc)).numpy())
 print(ConfusionMatrix(num_classes=2)(torch.tensor(sort_score) > 0.65, torch.tensor(gc)).numpy())
+print(ConfusionMatrix(num_classes=2)(torch.tensor(sort_score) > 0., torch.tensor(gc)).numpy())
 
 
 # fi = files[49862]
