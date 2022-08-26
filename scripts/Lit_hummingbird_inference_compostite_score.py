@@ -239,7 +239,7 @@ if 1:
         plt.suptitle(
             f"{i}, {ti}: yhat {int(yc[ti])}, gt {int(np.any((gc[ti],gc[ti-1],gc[ti+1])))} ({int(gc[ti])}, {np.sum((gc[ti],gc[ti-1],gc[ti+1]))}), "\
             f"p0 {pc[ti,0]:.2f}, p1 {pc[ti,1]:.2f}\n"\
-            f"online p {p[0,1]:.5f}, diff score {score_p_diff[ti]:.2f}, mag_triplet {score_t_diff[ti]}"\
+            f"online p {p[0,1]:.5f}, diff score {score_p_diff[ti]:.2f}, mag_triplet {score_t_diff[ti]:.2f}"\
             f"\n{fi.name}")
         plt.show()
 
