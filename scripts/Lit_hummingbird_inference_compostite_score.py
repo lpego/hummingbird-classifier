@@ -40,11 +40,18 @@ from utils import read_pretrained_model, find_checkpoints
 from triplet_diff_utils import main_triplet_difference
 
 from HummingbirdLoader_v2 import Denormalize # HummingbirdLoader, 
-from HummingbirdLitModel import HummingbirdModel        
+from HummingbirdLitModel import HummingbirdModel
 
 # %% 
+EXPERIMENT = "ME_FULL"
+
 # dirs = find_checkpoints(Path(f"{prefix}lightning_logs"), version="version_0", log="last")#.glob("**/*.ckpt"))
-dirs = find_checkpoints(Path(f"{prefix}hummingbirds-pil"), version="ixpfqgvo", log="best")#.glob("**/*.ckpt")) 
+# dirs = find_checkpoints(Path(f"{prefix}hummingbirds-pil"), version="ixpfqgvo", log="best")#.glob("**/*.ckpt")) 
+
+# dirs = find_checkpoints(Path(f"{prefix}hummingbirds-pil"), version="2wtmxr3l", log="best")#.glob("**/*.ckpt")) # Asymmetric DA
+dirs = find_checkpoints(Path(f"{prefix}hummingbirds-pil"), version="21aumca8", log="best")#.glob("**/*.ckpt")) # Symmetric DA
+
+
 
 # THIS WORKS: sfrfhnc3, 24zruk7z DENSENET161: 38tn45xv, 2col29g3, tba 130ch647  
 # || GOOD ixpfqgvo very very long 3pau0qtg / very long 32tka2n9 / long 22m0pigr / mid bqoy698f / short 23rgsozp
@@ -161,7 +168,9 @@ if 1:
     
     CLIP = len(score_t_diff)
 
-    sort_score = (0.1*score_p_diff + 0.8*pc[:,1] + 0.1*score_t_diff)[:CLIP]
+    sort_score = (0.1*score_p_diff + 0.5*pc[:,1] + 0.4*score_t_diff)[:CLIP]
+    # sort_score = (0.1*score_p_diff + 0.8*pc[:,1] + 0.1*score_t_diff)[:CLIP]
+
     sort_frames = np.argsort(-sort_score[:])
 
     if 0: # the heck is that here
@@ -218,14 +227,18 @@ if 1:
             g_viz = show_cam_on_image(pl_im, gcam[c], use_rgb=True)
             a[c].imshow(g_viz)
             a[c].set_title(f"CAM for Class {c}")
+            a[c].axis("off")
             # a[].imshow(g_viz)
         a[2].imshow(pl_im_pre)
         a[2].set_title(f"Pre-image: GT {gc[ti-1]}")
+        a[2].axis("off")
         a[3].imshow(pl_im)
         a[3].set_title(f"Inference: GT {gc[ti]}")
+        a[3].axis("off")
         a[4].imshow(pl_im_pos)
         a[4].set_title(f"Post-image: GT {gc[ti+1]}")
-        
+        a[4].axis("off")
+
         if DIFF:
             im_0 = exposure.match_histograms(pl_im_pre, pl_im, channel_axis=2)
             im_2 = exposure.match_histograms(pl_im_pos, pl_im, channel_axis=2)
@@ -235,6 +248,7 @@ if 1:
             dh = (1 + d1 - d2) / 2
             dh -= dh.min(); dh /= dh.max()
             a[5].imshow(dh)
+            a[5].axis("off")
 
         plt.suptitle(
             f"{i}, {ti}: yhat {int(yc[ti])}, gt {int(np.any((gc[ti],gc[ti-1],gc[ti+1])))} ({int(gc[ti])}, {np.sum((gc[ti],gc[ti-1],gc[ti+1]))}), "\
@@ -300,7 +314,7 @@ print(classification_report(gc, sort_score > 0.5))
 print(ConfusionMatrix(num_classes=2)(torch.tensor(pc[:,1]) > 0.5 , torch.tensor(gc)).numpy())
 print(ConfusionMatrix(num_classes=2)(torch.tensor(sort_score) > 0.5, torch.tensor(gc)).numpy())
 print(ConfusionMatrix(num_classes=2)(torch.tensor(sort_score) > 0.65, torch.tensor(gc)).numpy())
-print(ConfusionMatrix(num_classes=2)(torch.tensor(sort_score) > 0., torch.tensor(gc)).numpy())
+# print(ConfusionMatrix(num_classes=2)(torch.tensor(sort_score) > 0., torch.tensor(gc)).numpy())
 
 
 # fi = files[49862]
@@ -313,4 +327,61 @@ print(ConfusionMatrix(num_classes=2)(torch.tensor(sort_score) > 0., torch.tensor
 # f, a = plt.subplots(1,2,figsize=(12,6))
 # a[0].imshow(crop_img)
 # a[1].imshow(pl_im)
+# %%
+if 1: 
+    fpath = Path(f"/data/shared/frame-diff-anomaly/data/{vname}/_scores_triplet.csv")
+    if compute_triplet & (not fpath.is_file()):
+        score_t_diff = main_triplet_difference(fpath.parent, save_csv="triplet")
+
+    elif fpath.is_file():
+        print(f"{vname} triplet loss exists already, loading it.")
+        score_t_diff = pd.read_csv(fpath)
+
+    score_t_diff = score_t_diff.mag_std.values.astype(float)
+    score_t_diff = (score_t_diff - score_t_diff.min())/(score_t_diff.max() - score_t_diff.min())
+
+    score_p_diff = np.concatenate(([0], np.abs(np.diff(pc[:,1]))))
+
+    CLIP = len(score_t_diff)
+
+    sort_score = (0.1*score_p_diff + 0.5*pc[:,1] + 0.4*score_t_diff)[:CLIP]
+    sort_frames = np.argsort(-sort_score[:])
+
+    if 0: # the heck is that here
+        sub_ind = (score[yy] > 0)# & (gc[yy] == 1)
+        ss = yy[sub_ind]# + 1 if score is the diff! starts at 1 and not at 0
+
+    FROM = 20000
+    plt.figure(figsize=(15,5))
+    plt.title(f"Proba time series, with N_positive = {annot.Truth.sum()}")
+    plt.plot(pc[:CLIP,1], label="pc")
+    plt.plot(score_p_diff[:CLIP], label="diff")
+    plt.plot(score_t_diff[:CLIP], label="3diff")
+    plt.plot(sort_score, label="agg_score")
+
+    plt.legend(loc="lower right")
+
+    plt.scatter(annot[~annot.Truth].Frame - FR_F, 1*(np.ones(len(annot[~annot.Truth].Frame))), marker="v", color="k")
+    plt.scatter(annot[ annot.Truth].Frame - FR_F, 1*(np.ones(len(annot[annot.Truth].Frame))), marker="v", color="r")
+    plt.grid(True)
+# plt.xlim(20000,21500)
+
+# %%
+f, a = plt.subplots(4,1,figsize=(15,9))
+a[0].scatter(annot[~annot.Truth].Frame - FR_F, 1*(np.ones(len(annot[~annot.Truth].Frame))), marker="v", color="k")
+a[0].scatter(annot[ annot.Truth].Frame - FR_F, 1*(np.ones(len(annot[annot.Truth].Frame))), marker="v", color="r")
+a[0].plot(sort_score[:CLIP], label="anomaly score")
+a[0].grid(True)
+a[0].set_ylabel("Aggregated score")
+a[1].plot(pc[:CLIP,1], label="p hummingbird")
+a[1].grid(True)
+a[1].set_ylabel("p bird")
+a[2].plot(score_p_diff[:CLIP], label="p differential")
+a[2].grid(True)
+a[2].set_ylabel("p difference")
+a[3].plot(score_t_diff[:CLIP], label="f difference")
+a[3].grid(True)
+a[3].set_ylabel("Frame difference")
+a[3].set_xlabel("Frame number")
+
 # %%

@@ -136,7 +136,7 @@ class BlurImagePart(object):
     def __call__(self, img):
         """
         Args:
-            img (PIL Image): Image to be blurred in random box.
+            img (PIL Image): Image to be blurred in random box. 
         Returns:
             PIL Image: image as in but with blurred out rectangle.
         """

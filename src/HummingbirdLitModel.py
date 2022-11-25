@@ -244,11 +244,11 @@ class HummingbirdModel(pl.LightningModule):
             dir_dict_trn,
             learning_set="trn",
             ls_inds=[],
-            transforms=self.transform_tr_n,
-            #     {
-            #     "0": self.transform_tr_n, 
-            #     "1": self.transform_tr_p
-            #     }, # can load two sets of transforms, one for positives one for negatives
+            transforms= #self.transform_tr_n,
+                {
+                "0": self.transform_tr_n, 
+                "1": self.transform_tr_p
+                }, # can load two sets of transforms, one for positives one for negatives
         )
 
         # number of draws from the weighted random samples matches the 2 * (n_positive // batch_size) 

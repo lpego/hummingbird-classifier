@@ -62,7 +62,7 @@ if __name__ == "__main__":
     # %%
     model = HummingbirdModel(
         pos_data_dir=f"{prefix}data/bal_cla_diff_loc_all_vid/", # bal_cla_diff_loc_all_vid/", "double_negs_bal_cla_diff_loc_all_vid/"
-        neg_data_dir=f"{prefix}data/plenty_negs_all_vid/", # bal_cla_diff_loc_all_vid/", "double_negs_bal_cla_diff_loc_all_vid/"
+        neg_data_dir=f"{prefix}data/plenty_negs_all_vid/", #plenty_negs_all_vid/", # bal_cla_diff_loc_all_vid/", "double_negs_bal_cla_diff_loc_all_vid/"
         pretrained_network="densenet161", # resnet50
         learning_rate=2.5e-7,   # 1e-6
         batch_size=64,          # 128
@@ -72,7 +72,7 @@ if __name__ == "__main__":
     )
 
     # %%
-    name_run = "" #f"{model.pretrained_network}"
+    name_run = "asym_DA" #f"{model.pretrained_network}"
     cbacks = [pbar_cb, best_val_cb, last_mod_cb]
     wb_logger = WandbLogger(project='hummingbirds-pil', name=name_run if name_run else None)
     wb_logger.watch(model, log='all')
@@ -80,7 +80,7 @@ if __name__ == "__main__":
 
     trainer = Trainer(
         gpus=-1,  # [0,1],
-        max_epochs=1000,
+        max_epochs=50,
         strategy=DDPStrategy(find_unused_parameters=False),
         precision=16,
         callbacks=cbacks,
