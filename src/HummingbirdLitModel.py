@@ -78,10 +78,9 @@ class HummingbirdModel(pl.LightningModule):
             [
                 CustomCrop((100,1,1180,700), p=1.0),
                 transforms.RandomHorizontalFlip(p=0.5),
-                # transforms.RandomPerspective(distortion_scale=0.6, p=1.0),
-                # transforms.RandomAdjustSharpness(sharpness_factor=2),
-                # transforms.RandomEqualize(),
-                # transforms.RandomAutocontrast(),
+                transforms.RandomAffine(degrees=10),
+                transforms.RandomPerspective(distortion_scale=0.1, p=0.5),
+                transforms.RandomAdjustSharpness(sharpness_factor=2),
                 transforms.ColorJitter(brightness=[0.8, 1.2], contrast=[0.8, 1.2]), #(brightness=[0.75, 1.25], contrast=[0.75, 1.25]), # was 0.8, 1.5
                 transforms.Resize(
                     (self.size_im, self.size_im), interpolation=transforms.InterpolationMode.BILINEAR
@@ -102,10 +101,9 @@ class HummingbirdModel(pl.LightningModule):
             [
                 CustomCrop((100,1,1180,700), p=1.0),
                 transforms.RandomHorizontalFlip(p=0.5),
-                # transforms.RandomPerspective(distortion_scale=0.6, p=1.0),
-                # transforms.RandomAdjustSharpness(sharpness_factor=2),
-                # transforms.RandomEqualize(),
-                # transforms.RandomAutocontrast(),
+                transforms.RandomAffine(degrees=10),
+                transforms.RandomPerspective(distortion_scale=0.1, p=0.5),
+                transforms.RandomAdjustSharpness(sharpness_factor=2),
                 transforms.ColorJitter(brightness=[0.8, 1.2], contrast=[0.8, 1.2]), #(brightness=[0.75, 1.25], contrast=[0.75, 1.25]), # was 0.8, 1.5
                 transforms.Resize(
                     (self.size_im, self.size_im), interpolation=transforms.InterpolationMode.BILINEAR

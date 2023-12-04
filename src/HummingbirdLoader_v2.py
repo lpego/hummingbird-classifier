@@ -24,8 +24,6 @@ class HummingbirdLoader(Dataset):
         return len(self.img_paths)
 
     def __getitem__(self, idx):
-        # print(idx)
-        # print(self.img_paths[idx])
         try:
             with open(self.img_paths[idx], "rb") as f:
                 img = Image.open(f).convert("RGB")
@@ -89,8 +87,8 @@ class HummingbirdLoader(Dataset):
 
 class Denormalize(object):
     def __init__(self, mean, std):
-        self.mean = mean
-        self.std = std
+        self.mean = torch.Tensor(mean)
+        self.std = torch.Tensor(std)
 
     def __call__(self, tensor):
         """
@@ -99,10 +97,13 @@ class Denormalize(object):
         Returns:
             Tensor: Normalized image.
         """
-        for t, m, s in zip(tensor, self.mean, self.std):
-            t.mul_(s).add_(m)
-            # The normalize code -> t.sub_(m).div_(s)
-        return tensor
+        x_n = tensor.mul_(self.std).add_(self.mean)
+        return x_n
+
+        # for t, m, s in zip(tensor, self.mean, self.std):
+        #     x_n = t.mul_(s).add_(m)
+        #     # The normalize code -> t.sub_(m).div_(s)
+        # return x_n
 
 
 class BlurImagePart(object):

@@ -49,9 +49,11 @@ EXPERIMENT = "ME_FULL"
 # dirs = find_checkpoints(Path(f"{prefix}hummingbirds-pil"), version="ixpfqgvo", log="best")#.glob("**/*.ckpt")) 
 
 # dirs = find_checkpoints(Path(f"{prefix}hummingbirds-pil"), version="2wtmxr3l", log="best")#.glob("**/*.ckpt")) # Asymmetric DA
-dirs = find_checkpoints(Path(f"{prefix}hummingbirds-pil"), version="21aumca8", log="best")#.glob("**/*.ckpt")) # Symmetric DA
+# dirs = find_checkpoints(Path(f"{prefix}hummingbirds-pil"), version="21aumca8", log="best")#.glob("**/*.ckpt")) # Symmetric DA
+# dirs = find_checkpoints(Path(f"{prefix}hummingbirds-pil"), version="2cdynun2", log="best")#.glob("**/*.ckpt")) # LARGE DA
+# dirs = find_checkpoints(Path(f"{prefix}hummingbirds-pil"), version="3anp5naw", log="best")#.glob("**/*.ckpt")) # LARGE DA
 
-
+dirs = find_checkpoints(Path(f"{prefix}hummingbirds-pil"), version="1jartsnn", log="best")#.glob("**/*.ckpt")) # LARGE DA
 
 # THIS WORKS: sfrfhnc3, 24zruk7z DENSENET161: 38tn45xv, 2col29g3, tba 130ch647  
 # || GOOD ixpfqgvo very very long 3pau0qtg / very long 32tka2n9 / long 22m0pigr / mid bqoy698f / short 23rgsozp
@@ -74,10 +76,11 @@ model.eval()
 
 print(f"Positive data dir: {model.pos_data_dir}, negative data dir: {model.neg_data_dir}")
 # %%
-vname = "FH803_01" # "FH109_02"# # "FH502_02"#"FH109_02" # "FH502_02"# "FH803_01" 
+vname = "FH102_02" #"FH803_01" # "FH109_02"# "FH502_02"
 #  THESE ONES PERFECT CHERRY PICK FH602_01 FH703_02 FH207_01
 # dataloader = model.val_dataloader() # FH509_01, FH403_02, FH102_02 the worse FH408_02
 # FH308_01 Wet camera, 
+# FH107_01 Good example for why triplet socre is important. 
 
 dataloader = model.tst_dataloader()
 # dataloader = model.train_dataloader(shuffle=True)
@@ -97,33 +100,43 @@ if vname:
 # %% 
 # pbar_cb = pl.callbacks.progress.TQDMProgressBar(refresh_rate=5)
 
-trainer = pl.Trainer(
-    max_epochs=1,
-    gpus=1, #[0,1],
-    # callbacks=[pbar_cb], 
-    enable_checkpointing=False,
-    logger=False
-)
+score_csv = Path(f"{prefix}data/pred_csv/{EXPERIMENT}/{vname}.csv")
 
-outs = trainer.predict(model=model, dataloaders=[dataloader], return_predictions=True)
-# %% 
-y = []; p = []; gt = []
-for out in outs: 
-    y.append(out[0].numpy().squeeze())
-    p.append(out[1].numpy().squeeze())   
-    gt.append(out[2].numpy().squeeze())
+if 1 : #not score_csv.is_file():
+    trainer = pl.Trainer(
+        max_epochs=1,
+        gpus=1, #[0,1],
+        # callbacks=[pbar_cb], 
+        enable_checkpointing=False,
+        logger=False
+    )
 
-try:
-    yc = np.concatenate(y)
-    pc = np.concatenate(p)
-    gc = np.concatenate(gt)
-except: 
-    yc = np.array(y)
-    pc = np.asarray(p)
-    gc = np.asarray(gt)
+    outs = trainer.predict(model=model, dataloaders=[dataloader], return_predictions=True)
 
-if vname: 
-    gc[annot[annot.Truth].Frame] = 1
+    y = []; p = []; gt = []
+    for out in outs: 
+        y.append(out[0].numpy().squeeze())
+        p.append(out[1].numpy().squeeze())   
+        gt.append(out[2].numpy().squeeze())
+    try:
+        yc = np.concatenate(y)
+        pc = np.concatenate(p)
+        gc = np.concatenate(gt)
+    except: 
+        yc = np.array(y)
+        pc = np.asarray(p)
+        gc = np.asarray(gt)
+
+    if vname: 
+        gc[annot[annot.Truth].Frame] = 1
+
+else :
+    df_scores = pd.read_csv(score_csv)
+    yc = (df_scores["probabilities"] > 0.5).astype(int).values
+    gc = df_scores["gt"].values
+    pc = np.zeros(shape=(df_scores.shape[0],2))
+    pc[:,1] = df_scores["probabilities"].values
+    pc[:,0] = 1-pc[:,1]
 
 plt.figure()
 plt.plot(pc[:,1])
@@ -193,7 +206,7 @@ if 1:
 
     DETECT = 0
     DIFF = True
-    FR = 0; N = 20
+    FR = 0; N = 1
     for i, ti in enumerate(sort_frames):
         if i < FR:
             continue
@@ -207,11 +220,13 @@ if 1:
 
         im_ = Image.open(files[ti-1]).convert("RGB")
         x_ = model.transform_ts(im_)
-        pl_im_pre = np.transpose(denorm(x_.squeeze()),(1,2,0)).numpy()
+        x_ = np.transpose(x_.squeeze(),(1,2,0))
+        pl_im_pre = denorm(x_).numpy()
         
         im_ = Image.open(files[ti+1]).convert("RGB")
         x_ = model.transform_ts(im_)
-        pl_im_pos = np.transpose(denorm(x_.squeeze()),(1,2,0)).numpy()
+        x_ = np.transpose(x_.squeeze(),(1,2,0))
+        pl_im_pos = denorm(x_).numpy()
 
         # x_g = torch.clone(x)
         x.requires_grad = True
@@ -220,7 +235,8 @@ if 1:
 
         with torch.set_grad_enabled(False):
             p = torch.softmax(model(x), dim = 1).cpu().numpy()
-            pl_im = np.transpose(denorm(x.squeeze()),(1,2,0)).numpy()
+            x_ = np.transpose(x.squeeze(),(1,2,0))
+            pl_im = denorm(x_).numpy()
 
         f, a = plt.subplots(1,6,figsize=(17,4))
         for c in range(2):
@@ -229,6 +245,7 @@ if 1:
             a[c].set_title(f"CAM for Class {c}")
             a[c].axis("off")
             # a[].imshow(g_viz)
+
         a[2].imshow(pl_im_pre)
         a[2].set_title(f"Pre-image: GT {gc[ti-1]}")
         a[2].axis("off")
@@ -277,43 +294,51 @@ if 1:
         grtr = gc
 
     fsc = F1Score(num_classes=2)
-    sc = []
+    scosc = []; prosc = []; trisc = []
     threshs = np.arange(0.1,1,0.1)
     for t in threshs:
-        sc.append(fsc(torch.tensor(pc[:,1] > t), torch.tensor(gc)))
-        # print(f"THRESH = {t:.1f}: Acc: {np.sum(pc[:,1] > t):.1f}/{np.sum(gc == 1)}: {np.sum(pc[:,1] > t)/np.sum(gc == 1):.2f}%")
+        scosc.append(fsc(torch.tensor(sort_score > t), torch.tensor(gc)))
+        prosc.append(fsc(torch.tensor(pc[:,1] > t), torch.tensor(gc)))
+        trisc.append(fsc(torch.tensor(score_t_diff > t), torch.tensor(gc)))
 
     plt.figure()
-    plt.plot(sc)
+    plt.plot(scosc, label="bigscore")
+    plt.plot(trisc, label="triplet")
+    plt.plot(prosc, label="probas")
     plt.xticks(np.arange(len(threshs)), [f"{a:.2f}" for a in  threshs]);
     plt.grid("on")
     plt.ylabel("F1 Score")
-
-    pr_curve = PrecisionRecallCurve(num_classes=2)
-    precision, recall, thresholds = pr_curve(torch.tensor(pc), torch.tensor(gc))
-    plt.figure()
-    for c in range(2):
-        plt.plot(precision[c], recall[c], label=f"class {c}")
-    plt.grid("on")
     plt.legend()
-    plt.xlabel("Precision")
-    plt.ylabel("Recall")
+    # pr_curve = PrecisionRecallCurve(num_classes=2)
+    # precision, recall, thresholds = pr_curve(torch.tensor(pc), torch.tensor(gc))
+    # plt.figure()
+    # for c in range(2):
+    #     plt.plot(precision[c], recall[c], label=f"class {c}")
+    # plt.grid("on")
+    # plt.legend()
+    # plt.xlabel("Precision")
+    # plt.ylabel("Recall")
 
-    roc = ROC(num_classes=2)
-    fpr, tpr, thresholds = roc(torch.tensor(pc), torch.tensor(gc))
-    plt.figure()
-    for c in range(2):
-        plt.plot(fpr[c], tpr[c], label=f"class {c}")
-    plt.grid("on")
-    plt.legend()
-    plt.xlabel("FPR")
-    plt.ylabel("TPR")
+    # roc = ROC(num_classes=2)
+    # fpr, tpr, thresholds = roc(torch.tensor(pc), torch.tensor(gc))
+    # plt.figure()
+    # for c in range(2):
+    #     plt.plot(fpr[c], tpr[c], label=f"class {c}")
+    # plt.grid("on")
+    # plt.legend()
+    # plt.xlabel("FPR")
+    # plt.ylabel("TPR")
 
-print(classification_report(gc, pc[:,1] > 0.5))
-print(classification_report(gc, sort_score > 0.5))
+# print("Pure p(y=bird|x)")
+# print(classification_report(gc, pc[:,1] > 0.5))
+# print("Mix score @ 0.5")
+# print(classification_report(gc, sort_score > 0.5))
+print("Pure p(y=bird|x)")
 print(ConfusionMatrix(num_classes=2)(torch.tensor(pc[:,1]) > 0.5 , torch.tensor(gc)).numpy())
+print("Mix score @ 0.5")
 print(ConfusionMatrix(num_classes=2)(torch.tensor(sort_score) > 0.5, torch.tensor(gc)).numpy())
-print(ConfusionMatrix(num_classes=2)(torch.tensor(sort_score) > 0.65, torch.tensor(gc)).numpy())
+# print("Mix score @ 0.65")
+# print(ConfusionMatrix(num_classes=2)(torch.tensor(sort_score) > 0.65, torch.tensor(gc)).numpy())
 # print(ConfusionMatrix(num_classes=2)(torch.tensor(sort_score) > 0., torch.tensor(gc)).numpy())
 
 

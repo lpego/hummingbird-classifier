@@ -66,13 +66,13 @@ if __name__ == "__main__":
         pretrained_network="densenet161", # resnet50
         learning_rate=2.5e-7,   # 1e-6
         batch_size=64,          # 128
-        weight_decay=0,         # 1e-3 
+        weight_decay=1e-8,         # 1e-3 
         num_workers_loader=16,
-        step_size_decay = 25
+        step_size_decay = 20
     )
 
     # %%
-    name_run = "asym_DA" #f"{model.pretrained_network}"
+    name_run = "asymmetric_data_augm_very_long" #f"{model.pretrained_network}"
     cbacks = [pbar_cb, best_val_cb, last_mod_cb]
     wb_logger = WandbLogger(project='hummingbirds-pil', name=name_run if name_run else None)
     wb_logger.watch(model, log='all')
@@ -80,7 +80,7 @@ if __name__ == "__main__":
 
     trainer = Trainer(
         gpus=-1,  # [0,1],
-        max_epochs=50,
+        max_epochs=100,
         strategy=DDPStrategy(find_unused_parameters=False),
         precision=16,
         callbacks=cbacks,
