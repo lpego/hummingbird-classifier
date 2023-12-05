@@ -1,28 +1,13 @@
 # %%
-# %load_ext autoreload
-# %autoreload 2
-
 import os, sys
 
 os.environ["MKL_THREADING_LAYER"] = "GNU"
 
-# import numpy as np
-# from pathlib import Path
-# from PIL import Image
-# import datetime
-
-# import torch
 import pytorch_lightning as pl
 from pytorch_lightning.loggers import TensorBoardLogger, WandbLogger
 
 from pytorch_lightning.strategies.ddp import DDPStrategy
-from pytorch_lightning import Trainer #, LightningModule 
-
-# from torch import nn
-# from torch.nn import functional as F
-# from torch.utils.data import DataLoader, random_split
-# from torchmetrics import Accuracy, F1Score, ConfusionMatrix
-# from torchvision import transforms
+from pytorch_lightning import Trainer  # , LightningModule
 
 try:
     __IPYTHON__
@@ -34,14 +19,14 @@ else:
 sys.path.append(f"{prefix}src")
 # from utils import read_pretrained_model
 # from HummingbirdLoader import HeronLoader, Denormalize
-from HummingbirdLitModel import HummingbirdModel
+from HummingbirdModel import HummingbirdModel
 
 # %%
 if __name__ == "__main__":
-    # scripts/Lit_hummingbird_finetune.py --batch_size=185 --data_dir=data/bal_cla_diff_loc_all_vid/ 
-    # --learning_rate=0.00010856749693422446 
+    # scripts/Lit_hummingbird_finetune.py --batch_size=185 --data_dir=data/bal_cla_diff_loc_all_vid/
+    # --learning_rate=0.00010856749693422446
     # --num_workers_loader=20 --pretrained_network=resnet18
-    
+
     # Define checkpoints callbacks
     # best model on validation
     best_val_cb = pl.callbacks.ModelCheckpoint(
@@ -61,21 +46,23 @@ if __name__ == "__main__":
 
     # %%
     model = HummingbirdModel(
-        pos_data_dir=f"{prefix}data/bal_cla_diff_loc_all_vid/", # bal_cla_diff_loc_all_vid/", "double_negs_bal_cla_diff_loc_all_vid/"
-        neg_data_dir=f"{prefix}data/plenty_negs_all_vid/", #plenty_negs_all_vid/", # bal_cla_diff_loc_all_vid/", "double_negs_bal_cla_diff_loc_all_vid/"
-        pretrained_network="densenet161", # resnet50
-        learning_rate=2.5e-7,   # 1e-6
-        batch_size=64,          # 128
-        weight_decay=1e-8,         # 1e-3 
+        pos_data_dir=f"{prefix}data/bal_cla_diff_loc_all_vid/",  # bal_cla_diff_loc_all_vid/", "double_negs_bal_cla_diff_loc_all_vid/"
+        neg_data_dir=f"{prefix}data/plenty_negs_all_vid/",  # plenty_negs_all_vid/", # bal_cla_diff_loc_all_vid/", "double_negs_bal_cla_diff_loc_all_vid/"
+        pretrained_network="densenet161",  # resnet50
+        learning_rate=2.5e-7,  # 1e-6
+        batch_size=64,  # 128
+        weight_decay=1e-8,  # 1e-3
         num_workers_loader=16,
-        step_size_decay = 20
+        step_size_decay=20,
     )
 
     # %%
-    name_run = "asymmetric_data_augm_very_long" #f"{model.pretrained_network}"
+    name_run = "asymmetric_data_augm_very_long"  # f"{model.pretrained_network}"
     cbacks = [pbar_cb, best_val_cb, last_mod_cb]
-    wb_logger = WandbLogger(project='hummingbirds-pil', name=name_run if name_run else None)
-    wb_logger.watch(model, log='all')
+    wb_logger = WandbLogger(
+        project="hummingbirds-pil", name=name_run if name_run else None
+    )
+    wb_logger.watch(model, log="all")
     # TensorBoardLogger("tb_logs", name="")
 
     trainer = Trainer(
@@ -84,9 +71,9 @@ if __name__ == "__main__":
         strategy=DDPStrategy(find_unused_parameters=False),
         precision=16,
         callbacks=cbacks,
-        auto_lr_find=False,  # 
+        auto_lr_find=False,  #
         auto_scale_batch_size=False,
-        logger = wb_logger, 
+        logger=wb_logger,
         replace_sampler_ddp=False
         # profiler="simple",
     )
