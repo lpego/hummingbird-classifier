@@ -42,7 +42,7 @@ FROM ${RENKU_BASE_IMAGE}
 
 # install the python dependencies
 COPY requirements.txt env_humb.yml /tmp/
-RUN mv /tmp/env_humb.yml /tmp/environment.yml
+ADD /tmp/env_humb.yml /tmp/environment.yml
 RUN mamba env update -f /tmp/environment.yml && \
     /opt/conda/bin/pip install -r /tmp/requirements.txt --no-cache-dir && \
     mamba clean -y --all && \
