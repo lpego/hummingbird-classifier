@@ -7,11 +7,15 @@ import cv2
 import pandas as pd
 import numpy as np
 import ffmpeg
+import yaml
 
 from shutil import copyfile
 from pathlib import Path
 from joblib import Parallel, delayed
 
+import sys
+
+sys.path.append(".")
 from src.utils import cfg_to_arguments
 
 
@@ -51,7 +55,7 @@ def extract_frames_from_video(save_fold, video, ntot):
     cap.release()
 
 
-def extract_frames_from_video(save_fold, videos, vid_parsing_pars, config):
+def extract_frames_from_video(vid_parsing_pars, videos, config):
     """
     function to extract frames with frequency `FREQ` (type: int) from the video at path `video` (type: PosixPath), and save frames as jpg at path `save_fold` (type: PosixPath).
     """
@@ -98,7 +102,7 @@ def extract_frames_from_video(save_fold, videos, vid_parsing_pars, config):
         },
     }
 
-    print(f"{len(sites)} sites from {config.annotation_file}")
+    print(f"{len(sites)} sites from {config.annotations_file}")
 
     # %%
     # split still frames in the data dump into training, validation and test.
@@ -146,7 +150,7 @@ def extract_frames_from_video(save_fold, videos, vid_parsing_pars, config):
             n_frames[fold.split("_")[0]]["n_positives"] = n_files
             # print(f"{root}, {fold}, {class_dir.name}, {n_files}")
 
-    # %% Prepare Negatives as random frames from videos
+    # Prepare Negatives as random frames from videos
     trs, vas, tss = (
         int(0.6 * len(videos)),
         int(0.2 * len(videos)),
@@ -211,16 +215,14 @@ def extract_frames_from_video(save_fold, videos, vid_parsing_pars, config):
         f"total: unique {len(tsv) + len(vav) + len(trv)}, total: {len(tsvf) + len(vavf) + len(trvf)} videos from {vid_path}"
     )
 
-    # %% compute per video frame sampling rate to be balanced wrt positive class
-    bias = [75, 4, 4]
+    # compute per video frame sampling rate to be balanced wrt positive class
+    bias = config.sampling_rate_negatives
     for i, key in enumerate(vids_learn_set.keys()):
         vids_learn_set[key]["n_per_neg_vid"] = bias[i] + 2 * np.ceil(
             n_frames[key]["n_positives"] / len(vids_learn_set[key]["vids"])
         )
-        # print(vids_learn_set[key]["n_per_neg_vid"])
 
-    # %% NOW THE LOOPS ARE PARALLEL but have to check wether they work as supposed
-
+    # THE LOOPS ARE PARALLEL but have to check wether they work as supposed
     # split videos in training, validation and test.
 
     learning_sets = ["trn", "val", "tst"]
@@ -246,7 +248,6 @@ def extract_frames_from_video(save_fold, videos, vid_parsing_pars, config):
                 extract_frames_from_video(
                     save_fold, video, vids_learn_set[l_set]["n_per_neg_vid"]
                 )
-    # %% verify sizes
 
     root = Path("/data/shared/hummingbird-classifier/data")
     paths = ["trn_set", "val_set", "tst_set"]
@@ -264,46 +265,44 @@ def extract_frames_from_video(save_fold, videos, vid_parsing_pars, config):
 if __name__ == "__main__":
     args = argparse.ArgumentParser()
     args.add_argument(
-        "--positive-data-subfolder",
+        "--learning-set-folder",
         type=str,
-        help="Path to positive data subfolder",
+        help="Path to learning sets (`data` subfolder)",
     )
     args.add_argument(
-        "--negative-data-subfolder",
+        "--config",
+        "-c",
         type=str,
-        help="Path to negative data subfolder",
+        default="configs/configuration_hummingbirds.yml",
+        help="Path to config file",
     )
-    args.add_argument("--config", "-c", type=str, help="Path to config file")
     args = args.parse_args()
 
+    # parse config file
+    with open(args.config, "r") as f:
+        args.config = yaml.safe_load(f)
     config = cfg_to_arguments(args.config)
+
+    config.still_frames_location = Path(config.still_frames_location)
+
     ## BALANCED
     # FREQ = 33 # for unique videos
     # FREQ = 75  # for all
     ## MORE NEGATIVES (2x)
 
     # change to absolute folders, e.g.:
-    #  f"{root_f}/data/{vid_pars['positive_data_subfolder']}/trn_set/class_1/"
+    # positive and negative folders can be different for positives and negatives, but does not look like a good idea
+    # Will need to be changed accordingly in the HummingbirdModel class
     vid_parsing_pars = {
         "parallell_process": True,  # make video frame extraction in parallel on CPU
-        "positive_data_subfolder": f"{config.root_folder}/data/bal_cla_diff_loc_all_vid",
-        "negative_data_subfolder": f"{config.root_folder}/data/plenty_negs_all_vid",
+        "positive_data_subfolder": Path(
+            f"{config.root_folder}/data/{args.learning_set_folder}"
+        ),
+        "negative_data_subfolder": Path(
+            f"{config.root_folder}/data/{args.learning_set_folder}"
+        ),
     }
-
-    current_vid_root = "/data/shared/raw-video-import/data/RECODED_HummingbirdVideo*/"
+    current_vid_root = Path(config.current_video_root)
     video_list = sorted(list(current_vid_root.glob("RECODED_HummingbirdVideo*/*.avi")))
 
-    root_destination = Path("/data/users/michele/hummingbird-classifier")
-    root_origin = Path("/data/shared/raw-data-import/data/raw-hierarchy/")
-
-    extract_frames_from_video(save_fold, videos, vid_parsing_pars, config)
-
-
-# config.annotations_file # Path("/data/shared/raw-data-import/data/annotations/Interactions_corrected.csv")
-# config.image_root_destination
-# -- for construct: root_destination / stills_learn_set[l_set]["folder"] / fname,
-# root_destination is e.g. project root at Path("/data/users/michele/hummingbird-classifier")
-# stills_learn_set[l_set]["folder"] is defined below
-# fname is transform_path_to_name(image)
-# root_destination = Path("/data/users/michele/hummingbird-classifier")
-# root_origin = Path("/data/shared/raw-data-import/data/raw-hierarchy/")
+    extract_frames_from_video(vid_parsing_pars, video_list, config)
