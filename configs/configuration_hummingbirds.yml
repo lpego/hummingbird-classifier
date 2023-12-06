@@ -1,5 +1,9 @@
 # This file contains the configuration for the Hummingbirds pipeline 
+root_folder: /data/shared/hummingbirds-classifier
+rng_seed: 42
 
 # Data and preprocessing configuration 
-
+video_format: 'mp4' # Video format of the ouput videos
+still_frames_location: /data/shared/raw-data-import/data/raw-hierarchy/
+target_learning_set_location: /data/users/michele/hummingbird-classifier
 # Fine tuning configuration for Hummingbirds

@@ -1,34 +1,24 @@
 # %%
 # Remember to convert videos before running this!
 
-import os, sys
+# import os, sys
+import argparse
 import cv2
-
-import shutil
 import pandas as pd
 import numpy as np
-from shutil import copyfile
-
-from pathlib import Path
-from PIL import Image
 import ffmpeg
 
+from shutil import copyfile
+from pathlib import Path
 from joblib import Parallel, delayed
 
-# %%
-## BALANCED
-# FREQ = 33 # for unique videos
-# FREQ = 75  # for all
-## MORE NEGATIVES (2x)
-vid_pars = {
-    "PARALLEL": True,  # make video frame extraction in parallel on CPU
-    "positive_data_subfolder": "bal_cla_diff_loc_all_vid", 
-    "negative_data_subfolder": "plenty_negs_all_vid"
-}
+from src.utils import cfg_to_arguments
+
+
 # %%
 def transform_path_to_name(fpath):
     """
-        transforms the PosixPath path of a frame in the dropbox dump in a comprehensive filename.  
+    transforms the PosixPath path of a frame in the dropbox dump in a comprehensive filename.
     """
     fpath = Path(fpath)
     fname = "_".join([a for a in str(fpath).split("/") if a != "foundframes"])
@@ -37,7 +27,7 @@ def transform_path_to_name(fpath):
 
 def extract_frames_from_video(save_fold, video, ntot):
     """
-        function to extract frames with frequency `FREQ` (type: int) from the video at path `video` (type: PosixPath), and save frames as jpg at path `save_fold` (type: PosixPath). 
+    function to extract frames with frequency `FREQ` (type: int) from the video at path `video` (type: PosixPath), and save frames as jpg at path `save_fold` (type: PosixPath).
     """
     probe = ffmpeg.probe(video)
     # print(probe["format"]["filename"])
@@ -61,231 +51,259 @@ def extract_frames_from_video(save_fold, video, ntot):
     cap.release()
 
 
-# %%
-root_f = Path("/data/shared/hummingbird-classifier")
-vid_path = Path("/data/shared/raw-video-import/data/")
+def extract_frames_from_video(save_fold, videos, vid_parsing_pars, config):
+    """
+    function to extract frames with frequency `FREQ` (type: int) from the video at path `video` (type: PosixPath), and save frames as jpg at path `save_fold` (type: PosixPath).
+    """
+    # %% Prepare positive frames
+    # Split frames according to their geo location.
+    # i) read Interactions_corrected.csv and filter by "file_exists == True"
+    # ii) group data by "waypoint", but could also be "site"
+    # iii) ensure no image from the same grouping variable is included in more than one learning set. The initial waypoint splitting is mixed at random (as videos in the sections above)
 
-# 1) get all the videos that end in _01, as same name corresponds same location / video
-videos = list(vid_path.glob("RECODED_HummingbirdVideo*/*.avi"))
-videos.sort()
-# held_out_vids = np.random.sample(videos)
+    annotations = pd.read_csv(config.annotations_file)
+    annotations = annotations.loc[annotations.file_exists, :]
 
+    sites, counts = np.unique(annotations.waypoint.astype(str), return_counts=True)
 
-# %% Prepare positive frames
-# Split frames according to their geo location.
-# i) read Interactions_corrected.csv and filter by "file_exists == True"
-# ii) group data by "waypoint", but could also be "site"
-# iii) ensure no image from the same grouping variable is included in more than one learning set. The initial waypoint splitting is mixed at random (as videos in the sections above)
+    np.random.seed(config.rng_seed)
+    rand_ind_list = np.random.permutation(np.arange(len(sites)))
+    sites = sites[rand_ind_list]
+    counts = counts[rand_ind_list]
 
-root_destination = Path("/data/users/michele/hummingbird-classifier")
-root_origin = Path("/data/shared/raw-data-import/data/raw-hierarchy/")
-annotation_file = Path(
-    "/data/shared/raw-data-import/data/annotations/Interactions_corrected.csv"
-)
-annotations = pd.read_csv(annotation_file)
-annotations = annotations.loc[annotations.file_exists, :]
+    perc_counts = np.cumsum(counts) / np.sum(counts)
 
-sites, counts = np.unique(annotations.waypoint.astype(str), return_counts=True)
+    trv = sites[perc_counts < 0.6]
+    vav = sites[(perc_counts >= 0.6) & ((perc_counts < 0.8))]
+    tsv = sites[perc_counts > 0.8]
 
-np.random.seed(42)
-rand_ind_list = np.random.permutation(np.arange(len(sites)))
-sites = sites[rand_ind_list]
-counts = counts[rand_ind_list]
+    stills_learn_set = {
+        "trn": {
+            "sites": trv,
+            "folder": Path(
+                f"{vid_parsing_pars['positive_data_subfolder']}/trn_set/class_1/"
+            ),
+        },
+        "val": {
+            "sites": vav,
+            "folder": Path(
+                f"{vid_parsing_pars['positive_data_subfolder']}/val_set/class_1/"
+            ),
+        },
+        "tst": {
+            "sites": tsv,
+            "folder": Path(
+                f"{vid_parsing_pars['positive_data_subfolder']}/tst_set/class_1/"
+            ),
+        },
+    }
 
-perc_counts = np.cumsum(counts) / np.sum(counts)
+    print(f"{len(sites)} sites from {config.annotation_file}")
 
-trv = sites[perc_counts < 0.6]
-vav = sites[(perc_counts >= 0.6) & ((perc_counts < 0.8))]
-tsv = sites[perc_counts > 0.8]
+    # %%
+    # split still frames in the data dump into training, validation and test.
 
-stills_learn_set = {
-    "trn": {
-        "sites": trv,
-        "folder": Path(
-            f"{root_f}/data/{vid_pars['positive_data_subfolder']}/trn_set/class_1/"
-        ),
-    },
-    "val": {
-        "sites": vav,
-        "folder": Path(
-            f"{root_f}/data/{vid_pars['positive_data_subfolder']}/val_set/class_1/"
-        ),
-    },
-    "tst": {
-        "sites": tsv,
-        "folder": Path(f"{root_f}/data/{vid_pars['positive_data_subfolder']}/tst_set/class_1/"),
-    },
-}
+    COPY_POSITIVES = True
+    if (
+        vid_parsing_pars["positive_data_subfolder"]
+        == vid_parsing_pars["negative_data_subfolder"]
+    ):
+        learning_sets = ["trn", "val", "tst"]
 
-print(f"{len(sites)} sites from {annotation_file}")
+        for l_set in learning_sets:
+            save_fold = stills_learn_set[l_set]["folder"]
+            save_fold.mkdir(exist_ok=True, parents=True)
 
-# %%
-# split still frames in the data dump into training, validation and test.
+            stills = stills_learn_set[l_set]["sites"]
 
-COPY_POSITIVES = True
-if vid_pars["positive_data_subfolder"] == vid_pars["negative_data_subfolder"]:
-    learning_sets = ["trn", "val", "tst"]
+            for i, site in enumerate(stills[:]):
+                data_bag = annotations.fullpath_pre[annotations.waypoint == site]
 
-    for l_set in learning_sets:
-        save_fold = stills_learn_set[l_set]["folder"]
-        save_fold.mkdir(exist_ok=True, parents=True)
+                for image in data_bag:
+                    fname = transform_path_to_name(image)
+                    # copy-paste image to destination
+                    # print(i, site, image, fname)
+                    copyfile(
+                        config.still_frames_location / image,
+                        config.target_learning_set_location
+                        / stills_learn_set[l_set]["folder"]
+                        / fname,
+                    )
+    # %%
+    # Get positive class size and compute negative fractions
 
-        stills = stills_learn_set[l_set]["sites"]
+    root = (
+        Path(config.root_folder) / "data" / vid_parsing_pars["positive_data_subfolder"]
+    )
+    paths = ["trn_set", "val_set", "tst_set"]
 
-        for i, site in enumerate(stills[:]):
-
-            data_bag = annotations.fullpath_pre[annotations.waypoint == site]
-
-            for image in data_bag:
-                fname = transform_path_to_name(image)
-                # copy-paste image to destination
-                # print(i, site, image, fname)
-                copyfile(
-                    root_origin / image,
-                    root_destination / stills_learn_set[l_set]["folder"] / fname,
-                )
-# %% 
-# Get positive class size and compute negative fractions 
- 
-root = Path("/data/shared/hummingbird-classifier/data") / vid_pars["positive_data_subfolder"]
-paths = ["trn_set", "val_set", "tst_set"]
-
-n_frames = {}
-for fold in paths:
-    fdir = root / fold
-    for class_dir in fdir.iterdir():
-        n_files = len(list(class_dir.glob("*.jpg")))
-        n_frames[fold.split("_")[0]] = {}
-        n_frames[fold.split("_")[0]]["n_positives"] = n_files
-        # print(f"{root}, {fold}, {class_dir.name}, {n_files}")
- 
-# %% Prepare Negatives as random frames from videos
-trs, vas, tss = int(0.6 * len(videos)), int(0.2 * len(videos)), int(0.2 * len(videos))
-
-np.random.seed(42)
-np.random.shuffle(videos)
-trv = videos[:trs]
-vav = videos[trs : (trs + vas)]
-tsv = videos[(trs + vas) :]
-
-# 2) for each set, loop through videos and append those that have same name but different ending
-tem_ = trv.copy()
-trvf = []
-for vv in tem_:
-    vi = list(vv.parents[0].glob(f"{vv.name[:-6]}*"))
-    for v in vi:
-        trvf.append(v)
-
-tem_ = vav.copy()
-vavf = []
-for vv in tem_:
-    vi = list(vv.parents[0].glob(f"{vv.name[:-6]}*"))
-    for v in vi:
-        vavf.append(v)
-
-tem_ = tsv.copy()
-tsvf = []
-for vv in tem_:
-    vi = list(vv.parents[0].glob(f"{vv.name[:-6]}*"))
-    for v in vi:
-        tsvf.append(v)
-
-
-vids_learn_set = {
-    "trn": {
-        "vids": trvf,
-        "folder": Path(
-            f"{root_f}/data/{vid_pars['negative_data_subfolder']}/trn_set/class_0/"
-        ),
-        # "freq": vid_pars["FREQ"]["trn"],
-    },
-    "val": {
-        "vids": vavf,
-        "folder": Path(
-            f"{root_f}/data/{vid_pars['negative_data_subfolder']}/val_set/class_0/"
-        ),
-        # "freq": vid_pars["FREQ"]["val"],
-    },
-    "tst": {
-        "vids": tsvf,
-        "folder": Path(f"{root_f}/data/{vid_pars['negative_data_subfolder']}/tst_set/class_0/"),
-        # "freq": vid_pars["FREQ"]["tst"],
-    },
-}
-print(f"trn: unique {len(trv)}, total: {len(trvf)} videos from {vid_path}")
-print(f"val: unique {len(vav)}, total: {len(vavf)} videos from {vid_path}")
-print(f"tst: unique {len(tsv)}, total: {len(tsvf)} videos from {vid_path}")
-print(
-    f"total: unique {len(tsv) + len(vav) + len(trv)}, total: {len(tsvf) + len(vavf) + len(trvf)} videos from {vid_path}"
-)
-
-# %% compute per video frame sampling rate to be balanced wrt positive class
-bias = [75, 4, 4]
-for i, key in enumerate(vids_learn_set.keys()):
-    vids_learn_set[key]["n_per_neg_vid"] = bias[i] + 2*np.ceil(n_frames[key]["n_positives"] / len(vids_learn_set[key]["vids"]))
-    # print(vids_learn_set[key]["n_per_neg_vid"])
-
-# %% NOW THE LOOPS ARE PARALLEL but have to check wether they work as supposed
-
-# split videos in training, validation and test.
-
-learning_sets = ["trn", "val", "tst"]
-if vid_pars["PARALLEL"]:
-    pool = Parallel(n_jobs=8, verbose=1, backend="threading")
-
-for l_set in learning_sets:
-    save_fold = vids_learn_set[l_set]["folder"]
-    save_fold.mkdir(exist_ok=True, parents=True)
-
-    videos = vids_learn_set[l_set]["vids"]
-
-    # print(f"{l_set} :: {len(videos)}")
-    if vid_pars["PARALLEL"]:
-        pool(
-            delayed(extract_frames_from_video)(
-                save_fold, vid, vids_learn_set[l_set]["n_per_neg_vid"]
-            )
-            for vid in videos
-        )
-    else:
-        for i, video in enumerate(videos[:]):
-            extract_frames_from_video(save_fold, video, vids_learn_set[l_set]["n_per_neg_vid"])
-# %% verify sizes
-
-
-root = Path("/data/shared/hummingbird-classifier/data")
-paths = ["trn_set", "val_set", "tst_set"]
-
-for subd in ["positive_data_subfolder", "negative_data_subfolder"]:
+    n_frames = {}
     for fold in paths:
-        fdir = root / (vid_pars[subd] + "/" + fold)
+        fdir = root / fold
         for class_dir in fdir.iterdir():
             n_files = len(list(class_dir.glob("*.jpg")))
-            print(f"{root}, {vid_pars[subd] + '/' + fold}, {class_dir.name}, {n_files}")
+            n_frames[fold.split("_")[0]] = {}
+            n_frames[fold.split("_")[0]]["n_positives"] = n_files
+            # print(f"{root}, {fold}, {class_dir.name}, {n_files}")
+
+    # %% Prepare Negatives as random frames from videos
+    trs, vas, tss = (
+        int(0.6 * len(videos)),
+        int(0.2 * len(videos)),
+        int(0.2 * len(videos)),
+    )
+
+    np.random.seed(config.rng_seed)
+    np.random.shuffle(videos)
+    trv = videos[:trs]
+    vav = videos[trs : (trs + vas)]
+    tsv = videos[(trs + vas) :]
+
+    # 2) for each set, loop through videos and append those that have same name but different ending
+    tem_ = trv.copy()
+    trvf = []
+    for vv in tem_:
+        vi = list(vv.parents[0].glob(f"{vv.name[:-6]}*"))
+        for v in vi:
+            trvf.append(v)
+
+    tem_ = vav.copy()
+    vavf = []
+    for vv in tem_:
+        vi = list(vv.parents[0].glob(f"{vv.name[:-6]}*"))
+        for v in vi:
+            vavf.append(v)
+
+    tem_ = tsv.copy()
+    tsvf = []
+    for vv in tem_:
+        vi = list(vv.parents[0].glob(f"{vv.name[:-6]}*"))
+        for v in vi:
+            tsvf.append(v)
+
+    vids_learn_set = {
+        "trn": {
+            "vids": trvf,
+            "folder": Path(
+                f"{vid_parsing_pars['negative_data_subfolder']}/trn_set/class_0/"
+            ),
+            # "freq": vid_pars["FREQ"]["trn"],
+        },
+        "val": {
+            "vids": vavf,
+            "folder": Path(
+                f"{vid_parsing_pars['negative_data_subfolder']}/val_set/class_0/"
+            ),
+            # "freq": vid_pars["FREQ"]["val"],
+        },
+        "tst": {
+            "vids": tsvf,
+            "folder": Path(
+                f"{vid_parsing_pars['negative_data_subfolder']}/tst_set/class_0/"
+            ),
+            # "freq": vid_pars["FREQ"]["tst"],
+        },
+    }
+    print(f"trn: unique {len(trv)}, total: {len(trvf)} videos from {vid_path}")
+    print(f"val: unique {len(vav)}, total: {len(vavf)} videos from {vid_path}")
+    print(f"tst: unique {len(tsv)}, total: {len(tsvf)} videos from {vid_path}")
+    print(
+        f"total: unique {len(tsv) + len(vav) + len(trv)}, total: {len(tsvf) + len(vavf) + len(trvf)} videos from {vid_path}"
+    )
+
+    # %% compute per video frame sampling rate to be balanced wrt positive class
+    bias = [75, 4, 4]
+    for i, key in enumerate(vids_learn_set.keys()):
+        vids_learn_set[key]["n_per_neg_vid"] = bias[i] + 2 * np.ceil(
+            n_frames[key]["n_positives"] / len(vids_learn_set[key]["vids"])
+        )
+        # print(vids_learn_set[key]["n_per_neg_vid"])
+
+    # %% NOW THE LOOPS ARE PARALLEL but have to check wether they work as supposed
+
+    # split videos in training, validation and test.
+
+    learning_sets = ["trn", "val", "tst"]
+    if vid_parsing_pars["parallell_process"]:
+        pool = Parallel(n_jobs=8, verbose=1, backend="threading")
+
+    for l_set in learning_sets:
+        save_fold = vids_learn_set[l_set]["folder"]
+        save_fold.mkdir(exist_ok=True, parents=True)
+
+        videos = vids_learn_set[l_set]["vids"]
+
+        # print(f"{l_set} :: {len(videos)}")
+        if vid_parsing_pars["parallell_process"]:
+            pool(
+                delayed(extract_frames_from_video)(
+                    save_fold, vid, vids_learn_set[l_set]["n_per_neg_vid"]
+                )
+                for vid in videos
+            )
+        else:
+            for i, video in enumerate(videos[:]):
+                extract_frames_from_video(
+                    save_fold, video, vids_learn_set[l_set]["n_per_neg_vid"]
+                )
+    # %% verify sizes
+
+    root = Path("/data/shared/hummingbird-classifier/data")
+    paths = ["trn_set", "val_set", "tst_set"]
+
+    for subd in ["positive_data_subfolder", "negative_data_subfolder"]:
+        for fold in paths:
+            fdir = root / (vid_parsing_pars[subd] + "/" + fold)
+            for class_dir in fdir.iterdir():
+                n_files = len(list(class_dir.glob("*.jpg")))
+                print(
+                    f"{root}, {vid_parsing_pars[subd] + '/' + fold}, {class_dir.name}, {n_files}"
+                )
 
 
-# %%
-# root = Path("/data/shared/hummingbird-classifier/data") / vid_pars["data_subfolder"] / "training_set/class_0"
-# files = sorted(list(root.glob("*.jpg")))
-# # len(files)
+if __name__ == "__main__":
+    args = argparse.ArgumentParser()
+    args.add_argument(
+        "--positive-data-subfolder",
+        type=str,
+        help="Path to positive data subfolder",
+    )
+    args.add_argument(
+        "--negative-data-subfolder",
+        type=str,
+        help="Path to negative data subfolder",
+    )
+    args.add_argument("--config", "-c", type=str, help="Path to config file")
+    args = args.parse_args()
 
-# if 0:
-# for i, ti in enumerate(files):
-#     fi = files[ti] 
-#     x = Image.open(fi).convert("RGB")
-#     plt.figure(figsize=(6,6))
-#     plt.imshow(x)
-#     plt.title(f"{i}, {ti}")
-#     plt.show()
+    config = cfg_to_arguments(args.config)
+    ## BALANCED
+    # FREQ = 33 # for unique videos
+    # FREQ = 75  # for all
+    ## MORE NEGATIVES (2x)
 
-# %%
-# Remove videos with less than 2000 frames... likely rubbish or corruptedprobe = ffmpeg.probe(video)
-# videos = sorted(list(Path("/data/shared/raw-video-import/data/RECODED_HummingbirdVideo_TLV").glob("*.avi")))
+    # change to absolute folders, e.g.:
+    #  f"{root_f}/data/{vid_pars['positive_data_subfolder']}/trn_set/class_1/"
+    vid_parsing_pars = {
+        "parallell_process": True,  # make video frame extraction in parallel on CPU
+        "positive_data_subfolder": f"{config.root_folder}/data/bal_cla_diff_loc_all_vid",
+        "negative_data_subfolder": f"{config.root_folder}/data/plenty_negs_all_vid",
+    }
 
-# for video in videos:
-#     probe = ffmpeg.probe(video)
-#     n_frames = int(probe["streams"][0]["nb_frames"])
-#     if n_frames < 1000:
-#         print(f"{n_frames} in {video}")
-        # video.unlink()
-# %%
+    current_vid_root = "/data/shared/raw-video-import/data/RECODED_HummingbirdVideo*/"
+    video_list = sorted(list(current_vid_root.glob("RECODED_HummingbirdVideo*/*.avi")))
+
+    root_destination = Path("/data/users/michele/hummingbird-classifier")
+    root_origin = Path("/data/shared/raw-data-import/data/raw-hierarchy/")
+
+    extract_frames_from_video(save_fold, videos, vid_parsing_pars, config)
+
+
+# config.annotations_file # Path("/data/shared/raw-data-import/data/annotations/Interactions_corrected.csv")
+# config.image_root_destination
+# -- for construct: root_destination / stills_learn_set[l_set]["folder"] / fname,
+# root_destination is e.g. project root at Path("/data/users/michele/hummingbird-classifier")
+# stills_learn_set[l_set]["folder"] is defined below
+# fname is transform_path_to_name(image)
+# root_destination = Path("/data/users/michele/hummingbird-classifier")
+# root_origin = Path("/data/shared/raw-data-import/data/raw-hierarchy/")
