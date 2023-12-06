@@ -220,13 +220,11 @@ def prepare_sets(vid_parsing_pars, videos, config):
             n_frames[key]["n_positives"] / len(vids_learn_set[key]["vids"])
         )
 
-    # THE LOOPS ARE PARALLEL but have to check wether they work as supposed
-    # split videos in training, validation and test.
-
+    # Define loop to extract frames from  videos in parallel, if config.cpu_cores_parallel_jobs > 1
     learning_sets = ["trn", "val", "tst"]
     if vid_parsing_pars["parallell_process"]:
         pool = Parallel(
-            n_jobs=config.cores_parallel_jobs, verbose=1, backend="threading"
+            n_jobs=config.cpu_cores_parallel_jobs, verbose=1, backend="threading"
         )
 
     for l_set in learning_sets:
@@ -235,7 +233,6 @@ def prepare_sets(vid_parsing_pars, videos, config):
 
         videos = vids_learn_set[l_set]["vids"]
 
-        # print(f"{l_set} :: {len(videos)}")
         if vid_parsing_pars["parallell_process"]:
             pool(
                 delayed(extract_frames_from_video)(
@@ -294,7 +291,8 @@ if __name__ == "__main__":
     # positive and negative folders can be different for positives and negatives, but does not look like a good idea
     # Will need to be changed accordingly in the HummingbirdModel class
     vid_parsing_pars = {
-        "parallell_process": True,  # make video frame extraction in parallel on CPU
+        "parallell_process": config.cpu_cores_parallel_jobs
+        > 1,  # make video frame extraction in parallel on CPU
         "positive_data_subfolder": Path(
             f"{config.root_folder}/{args.learning_set_folder}"
         ),
