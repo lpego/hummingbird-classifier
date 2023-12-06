@@ -39,8 +39,8 @@ sys.path.append(f"{prefix}src")
 from utils import read_pretrained_model, find_checkpoints
 from triplet_diff_utils import main_triplet_difference
 
-from HummingbirdLoader_v2 import Denormalize # HummingbirdLoader, 
-from HummingbirdLitModel import HummingbirdModel
+from HummingbirdLoader import Denormalize # HummingbirdLoader, 
+from HummingbirdModel import HummingbirdModel
 
 # %% 
 EXPERIMENT = "ME_FULL"

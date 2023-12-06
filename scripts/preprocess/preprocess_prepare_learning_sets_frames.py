@@ -55,7 +55,7 @@ def extract_frames_from_video(save_fold, video, ntot):
     cap.release()
 
 
-def extract_frames_from_video(vid_parsing_pars, videos, config):
+def prepare_sets(vid_parsing_pars, videos, config):
     """
     function to extract frames with frequency `FREQ` (type: int) from the video at path `video` (type: PosixPath), and save frames as jpg at path `save_fold` (type: PosixPath).
     """
@@ -104,7 +104,6 @@ def extract_frames_from_video(vid_parsing_pars, videos, config):
 
     print(f"{len(sites)} sites from {config.annotations_file}")
 
-    # %%
     # split still frames in the data dump into training, validation and test.
 
     COPY_POSITIVES = True
@@ -113,32 +112,25 @@ def extract_frames_from_video(vid_parsing_pars, videos, config):
         == vid_parsing_pars["negative_data_subfolder"]
     ):
         learning_sets = ["trn", "val", "tst"]
-
         for l_set in learning_sets:
             save_fold = stills_learn_set[l_set]["folder"]
             save_fold.mkdir(exist_ok=True, parents=True)
 
+            print(f"Copying {l_set} set to {save_fold}")
             stills = stills_learn_set[l_set]["sites"]
 
             for i, site in enumerate(stills[:]):
                 data_bag = annotations.fullpath_pre[annotations.waypoint == site]
-
                 for image in data_bag:
                     fname = transform_path_to_name(image)
-                    # copy-paste image to destination
-                    # print(i, site, image, fname)
                     copyfile(
-                        config.still_frames_location / image,
-                        config.target_learning_set_location
-                        / stills_learn_set[l_set]["folder"]
-                        / fname,
+                        Path(config.still_frames_location) / image,
+                        stills_learn_set[l_set]["folder"] / fname,
                     )
     # %%
     # Get positive class size and compute negative fractions
 
-    root = (
-        Path(config.root_folder) / "data" / vid_parsing_pars["positive_data_subfolder"]
-    )
+    root = vid_parsing_pars["positive_data_subfolder"]
     paths = ["trn_set", "val_set", "tst_set"]
 
     n_frames = {}
@@ -208,11 +200,17 @@ def extract_frames_from_video(vid_parsing_pars, videos, config):
             # "freq": vid_pars["FREQ"]["tst"],
         },
     }
-    print(f"trn: unique {len(trv)}, total: {len(trvf)} videos from {vid_path}")
-    print(f"val: unique {len(vav)}, total: {len(vavf)} videos from {vid_path}")
-    print(f"tst: unique {len(tsv)}, total: {len(tsvf)} videos from {vid_path}")
     print(
-        f"total: unique {len(tsv) + len(vav) + len(trv)}, total: {len(tsvf) + len(vavf) + len(trvf)} videos from {vid_path}"
+        f"class_0 trn: unique {len(trv)}, total: {len(trvf)} videos from {vids_learn_set['trn']['vids'][0].parents[0]}"
+    )
+    print(
+        f"class_0 val: unique {len(vav)}, total: {len(vavf)} videos from {vids_learn_set['val']['vids'][0].parents[0]}"
+    )
+    print(
+        f"class_0 tst: unique {len(tsv)}, total: {len(tsvf)} videos from {vids_learn_set['tst']['vids'][0].parents[0]}"
+    )
+    print(
+        f"total: unique {len(tsv) + len(vav) + len(trv)}, total: {len(tsvf) + len(vavf) + len(trvf)} videos from"
     )
 
     # compute per video frame sampling rate to be balanced wrt positive class
@@ -227,7 +225,9 @@ def extract_frames_from_video(vid_parsing_pars, videos, config):
 
     learning_sets = ["trn", "val", "tst"]
     if vid_parsing_pars["parallell_process"]:
-        pool = Parallel(n_jobs=8, verbose=1, backend="threading")
+        pool = Parallel(
+            n_jobs=config.cores_parallel_jobs, verbose=1, backend="threading"
+        )
 
     for l_set in learning_sets:
         save_fold = vids_learn_set[l_set]["folder"]
@@ -296,13 +296,13 @@ if __name__ == "__main__":
     vid_parsing_pars = {
         "parallell_process": True,  # make video frame extraction in parallel on CPU
         "positive_data_subfolder": Path(
-            f"{config.root_folder}/data/{args.learning_set_folder}"
+            f"{config.root_folder}/{args.learning_set_folder}"
         ),
         "negative_data_subfolder": Path(
-            f"{config.root_folder}/data/{args.learning_set_folder}"
+            f"{config.root_folder}/{args.learning_set_folder}"
         ),
     }
     current_vid_root = Path(config.current_video_root)
     video_list = sorted(list(current_vid_root.glob("RECODED_HummingbirdVideo*/*.avi")))
 
-    extract_frames_from_video(vid_parsing_pars, video_list, config)
+    prepare_sets(vid_parsing_pars, video_list, config)

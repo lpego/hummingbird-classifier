@@ -22,6 +22,7 @@ sys.path.append(f"{prefix}src")
 from HummingbirdModel import HummingbirdModel
 
 # %%
+
 if __name__ == "__main__":
     # scripts/Lit_hummingbird_finetune.py --batch_size=185 --data_dir=data/bal_cla_diff_loc_all_vid/
     # --learning_rate=0.00010856749693422446
@@ -50,7 +51,7 @@ if __name__ == "__main__":
         neg_data_dir=f"{prefix}data/plenty_negs_all_vid/",  # plenty_negs_all_vid/", # bal_cla_diff_loc_all_vid/", "double_negs_bal_cla_diff_loc_all_vid/"
         pretrained_network="densenet161",  # resnet50
         learning_rate=2.5e-7,  # 1e-6
-        batch_size=64,  # 128
+        batch_size=64,
         weight_decay=1e-8,  # 1e-3
         num_workers_loader=16,
         step_size_decay=20,

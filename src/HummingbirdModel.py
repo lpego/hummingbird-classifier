@@ -4,6 +4,7 @@
 
 from pathlib import Path
 from PIL import Image
+
 # import datetime
 
 import torch
@@ -12,7 +13,7 @@ import pytorch_lightning as pl
 from torch import nn
 from torch.nn import functional as F
 from torch.utils.data import DataLoader, random_split
-from torch.utils.data.sampler import WeightedRandomSampler 
+from torch.utils.data.sampler import WeightedRandomSampler
 from torchmetrics import F1Score
 from torchmetrics.functional import precision_recall
 from torchvision import transforms
@@ -30,13 +31,14 @@ from utils import read_pretrained_model
 
 # from ptv_transforms import transforms as trans
 
-from HummingbirdLoader_v2 import (
+from HummingbirdLoader import (
     HummingbirdLoader,
     Denormalize,
     BlurImagePart,
     AddLightHazePart,
-    CustomCrop
+    CustomCrop,
 )
+
 
 # %%
 class HummingbirdModel(pl.LightningModule):
@@ -53,9 +55,8 @@ class HummingbirdModel(pl.LightningModule):
         batch_size=32,
         weight_decay=1e-8,
         num_workers_loader=4,
-        step_size_decay=5
+        step_size_decay=5,
     ):
-
         super().__init__()
 
         # Set our init args as class attributes
@@ -76,14 +77,17 @@ class HummingbirdModel(pl.LightningModule):
 
         self.transform_tr_p = transforms.Compose(
             [
-                CustomCrop((100,1,1180,700), p=1.0),
+                CustomCrop((100, 1, 1180, 700), p=1.0),
                 transforms.RandomHorizontalFlip(p=0.5),
                 transforms.RandomAffine(degrees=10),
                 transforms.RandomPerspective(distortion_scale=0.1, p=0.5),
                 transforms.RandomAdjustSharpness(sharpness_factor=2),
-                transforms.ColorJitter(brightness=[0.8, 1.2], contrast=[0.8, 1.2]), #(brightness=[0.75, 1.25], contrast=[0.75, 1.25]), # was 0.8, 1.5
+                transforms.ColorJitter(
+                    brightness=[0.8, 1.2], contrast=[0.8, 1.2]
+                ),  # (brightness=[0.75, 1.25], contrast=[0.75, 1.25]), # was 0.8, 1.5
                 transforms.Resize(
-                    (self.size_im, self.size_im), interpolation=transforms.InterpolationMode.BILINEAR
+                    (self.size_im, self.size_im),
+                    interpolation=transforms.InterpolationMode.BILINEAR,
                 ),
                 # BlurImagePart(size=self.size_im, box_s=((20, 150), (10, 100)), p=0.2),
                 # AddLightHazePart(
@@ -97,16 +101,19 @@ class HummingbirdModel(pl.LightningModule):
             ]
         )
 
-        self.transform_tr_n = transforms.Compose( # = self.transform_tr_p
+        self.transform_tr_n = transforms.Compose(  # = self.transform_tr_p
             [
-                CustomCrop((100,1,1180,700), p=1.0),
+                CustomCrop((100, 1, 1180, 700), p=1.0),
                 transforms.RandomHorizontalFlip(p=0.5),
                 transforms.RandomAffine(degrees=10),
                 transforms.RandomPerspective(distortion_scale=0.1, p=0.5),
                 transforms.RandomAdjustSharpness(sharpness_factor=2),
-                transforms.ColorJitter(brightness=[0.8, 1.2], contrast=[0.8, 1.2]), #(brightness=[0.75, 1.25], contrast=[0.75, 1.25]), # was 0.8, 1.5
+                transforms.ColorJitter(
+                    brightness=[0.8, 1.2], contrast=[0.8, 1.2]
+                ),  # (brightness=[0.75, 1.25], contrast=[0.75, 1.25]), # was 0.8, 1.5
                 transforms.Resize(
-                    (self.size_im, self.size_im), interpolation=transforms.InterpolationMode.BILINEAR
+                    (self.size_im, self.size_im),
+                    interpolation=transforms.InterpolationMode.BILINEAR,
                 ),
                 BlurImagePart(size=self.size_im, box_s=((20, 150), (10, 100)), p=0.2),
                 AddLightHazePart(
@@ -122,9 +129,10 @@ class HummingbirdModel(pl.LightningModule):
 
         self.transform_ts = transforms.Compose(
             [
-                CustomCrop((100,1,1180,700), p=1.0),
+                CustomCrop((100, 1, 1180, 700), p=1.0),
                 transforms.Resize(
-                    (self.size_im, self.size_im), interpolation=transforms.InterpolationMode.BILINEAR
+                    (self.size_im, self.size_im),
+                    interpolation=transforms.InterpolationMode.BILINEAR,
                 ),  # AT LEAST 224
                 transforms.ToTensor(),
                 transforms.Normalize((0.485, 0.456, 0.406), (0.229, 0.224, 0.225)),
@@ -145,13 +153,14 @@ class HummingbirdModel(pl.LightningModule):
         "training iteration per batch"
         x, y, _ = batch
         logits = self(x)
-        loss = F.cross_entropy(logits, y) #, weight=torch.Tensor((1,2)).to("cuda"))
+        loss = F.cross_entropy(logits, y)  # , weight=torch.Tensor((1,2)).to("cuda"))
         # loss = F.nll_loss(logits, y, weight=torch.Tensor((1,2)).to("cuda"))
         preds = torch.argmax(logits, dim=1)
         self.accuracy(preds, y)
         # only take them for positive class. Maybe torchmetrics for that is not good
-        (self.precision, self.recall) = precision_recall(preds.int(), y.int(), 
-                    num_classes=2, average=None)
+        (self.precision, self.recall) = precision_recall(
+            preds.int(), y.int(), num_classes=2, average=None
+        )
 
         self.log("trn_loss", loss, prog_bar=True)
         self.log("trn_acc", self.accuracy, prog_bar=False)
@@ -164,12 +173,13 @@ class HummingbirdModel(pl.LightningModule):
         "validation iteration per batch"
         x, y, _ = batch
         logits = self(x)
-        loss = F.cross_entropy(logits, y) #, weight=torch.Tensor((1,2)).to("cuda"))
+        loss = F.cross_entropy(logits, y)  # , weight=torch.Tensor((1,2)).to("cuda"))
         # loss = F.nll_loss(logits, y, weight=torch.Tensor((1,2)).to("cuda"))
         preds = torch.argmax(logits, dim=1)
         self.accuracy(preds, y)
-        (self.precision, self.recall) = precision_recall(preds.int(), y.int(), 
-                    num_classes=2, average=None)
+        (self.precision, self.recall) = precision_recall(
+            preds.int(), y.int(), num_classes=2, average=None
+        )
 
         self.log(f"{print_log}_loss", loss, prog_bar=True)
         self.log(f"{print_log}_acc", self.accuracy, prog_bar=True)
@@ -195,16 +205,17 @@ class HummingbirdModel(pl.LightningModule):
             self.model.parameters(),
             lr=self.learning_rate,
             weight_decay=self.weight_decay,
-
         )
-        lr_scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=self.step_size_decay, gamma=0.5)
+        lr_scheduler = torch.optim.lr_scheduler.StepLR(
+            optimizer, step_size=self.step_size_decay, gamma=0.5
+        )
         # lr_scheduler = torch.optim.lr_scheduler.MultiStepLR(
-            # optimizer, milestones=[10, 20, 50], gamma=0.5
+        # optimizer, milestones=[10, 20, 50], gamma=0.5
         # )
 
         return [optimizer], [lr_scheduler]
 
-    # figure out how Plateau scheduler could work when val fits are too good. 
+    # figure out how Plateau scheduler could work when val fits are too good.
     # def configure_optimizers(self):
     #     "optimiser config plus lr scheduler callback"
     #     optimizer = torch.optim.AdamW(
@@ -242,14 +253,13 @@ class HummingbirdModel(pl.LightningModule):
             dir_dict_trn,
             learning_set="trn",
             ls_inds=[],
-            transforms= #self.transform_tr_n,
-                {
-                "0": self.transform_tr_n, 
-                "1": self.transform_tr_p
-                }, # can load two sets of transforms, one for positives one for negatives
+            transforms={  # self.transform_tr_n,
+                "0": self.transform_tr_n,
+                "1": self.transform_tr_p,
+            },  # can load two sets of transforms, one for positives one for negatives
         )
 
-        # number of draws from the weighted random samples matches the 2 * (n_positive // batch_size) 
+        # number of draws from the weighted random samples matches the 2 * (n_positive // batch_size)
 
         if not shuffle:
             return DataLoader(
@@ -260,15 +270,18 @@ class HummingbirdModel(pl.LightningModule):
                 num_workers=self.num_workers_loader,
             )
 
-        else: # means weighted random sampling
-            # make the number of draws comparable to a full sweep over a balanced set. 
+        else:  # means weighted random sampling
+            # make the number of draws comparable to a full sweep over a balanced set.
             # Should just train for longer, but "epochs" are now shorter
             num_samples = (trn_d.labels == 1).sum().item()
-            
+
             weights = []
-            for c in [0, 1]: 
-                weights.extend(len(trn_d.labels[trn_d.labels == c]) * [len(trn_d.labels) / (trn_d.labels == c).sum()])
-            
+            for c in [0, 1]:
+                weights.extend(
+                    len(trn_d.labels[trn_d.labels == c])
+                    * [len(trn_d.labels) / (trn_d.labels == c).sum()]
+                )
+
             self.trn_weights = torch.Tensor(weights)
             sampler = WeightedRandomSampler(self.trn_weights, num_samples=num_samples)
 
@@ -277,9 +290,9 @@ class HummingbirdModel(pl.LightningModule):
                 batch_size=self.batch_size,
                 drop_last=True,
                 num_workers=self.num_workers_loader,
-                sampler = sampler
+                sampler=sampler,
             )
-            
+
     def val_dataloader(self):
         "def of custom val dataloader"
 
@@ -312,9 +325,9 @@ class HummingbirdModel(pl.LightningModule):
 
     def tst_external_dataloader(self, path):
         """
-            def of test dataloader from external data. All loaded as `negative` samples, 
-            but just for convenience to maintain ordering"
-            e.g. /data/shared/frame-diff-anomaly/data/FH102_02/
+        def of test dataloader from external data. All loaded as `negative` samples,
+        but just for convenience to maintain ordering"
+        e.g. /data/shared/frame-diff-anomaly/data/FH102_02/
         """
 
         dir_dict_tst_ex = {"negatives": Path(path), "positives": Path(".")}
@@ -328,7 +341,6 @@ class HummingbirdModel(pl.LightningModule):
         return DataLoader(
             tst_ex_d, batch_size=self.batch_size, num_workers=self.num_workers_loader
         )
-
 
 
 # %%

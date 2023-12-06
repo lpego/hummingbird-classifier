@@ -31,8 +31,8 @@ sys.path.append(f"{prefix}src")
 # from src.utils import read_pretrained_model, find_checkpoints
 from utils import read_pretrained_model, find_checkpoints
 
-from HummingbirdLoader_v2 import Denormalize # HummingbirdLoader, 
-from HummingbirdLitModel import HummingbirdModel        
+from HummingbirdLoader import Denormalize # HummingbirdLoader, 
+from HummingbirdModel import HummingbirdModel        
 
 # %% 
 # /data/shared/hummingbird-classifier/hummingbirds-pil/3u92ydow
