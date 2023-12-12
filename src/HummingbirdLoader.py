@@ -9,7 +9,6 @@ from torch.utils.data import Dataset
 
 class HummingbirdLoader(Dataset):
     def __init__(self, dir_dict, ls_inds=[], learning_set="all", transforms=None):
-
         self.transforms = transforms
         self.imsize = 224
 
@@ -53,7 +52,6 @@ class HummingbirdLoader(Dataset):
 
     @staticmethod
     def prepare_data(dir_dict, ls_inds):
-
         # Make paths
         if isinstance(dir_dict["negatives"], list):
             negatives = []
@@ -85,27 +83,6 @@ class HummingbirdLoader(Dataset):
         return img_paths[ls_inds], labels[ls_inds], ls_inds
 
 
-class Denormalize(object):
-    def __init__(self, mean, std):
-        self.mean = torch.Tensor(mean)
-        self.std = torch.Tensor(std)
-
-    def __call__(self, tensor):
-        """
-        Args:
-            tensor (Tensor): Tensor image of size (C, H, W) to be normalized.
-        Returns:
-            Tensor: Normalized image.
-        """
-        x_n = tensor.mul_(self.std).add_(self.mean)
-        return x_n
-
-        # for t, m, s in zip(tensor, self.mean, self.std):
-        #     x_n = t.mul_(s).add_(m)
-        #     # The normalize code -> t.sub_(m).div_(s)
-        # return x_n
-
-
 class BlurImagePart(object):
     """Blur only a part of the image
     Args:
@@ -127,7 +104,6 @@ class BlurImagePart(object):
     def __init__(
         self, size, box_s, gaussian_rad=2, interpolation=Image.BILINEAR, p=0.2
     ):
-
         self.size = size
         self.interpolation = interpolation
         self.box_size_interval = box_s
@@ -137,7 +113,7 @@ class BlurImagePart(object):
     def __call__(self, img):
         """
         Args:
-            img (PIL Image): Image to be blurred in random box. 
+            img (PIL Image): Image to be blurred in random box.
         Returns:
             PIL Image: image as in but with blurred out rectangle.
         """
@@ -263,11 +239,10 @@ class AddLightHazePart(object):
         )
 
 
-
 class CustomCrop(object):
     """Crop a specific part of the image, and discard the rest
     Args:
-    size (sequence of ints): ((h min, h max), (w min, w max)). It defines the crop 
+    size (sequence of ints): ((h min, h max), (w min, w max)). It defines the crop
 
     FROM:
         from PIL import Image, ImageFilter
@@ -281,10 +256,7 @@ class CustomCrop(object):
         image.save('path/to/save_image_file')
     """
 
-    def __init__(
-        self, box, p=1.0
-    ):
-
+    def __init__(self, box, p=1.0):
         self.box = box
         self.p = p
 

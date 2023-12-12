@@ -3,32 +3,31 @@ import os, sys
 
 os.environ["MKL_THREADING_LAYER"] = "GNU"
 
+import argparse
+import torch
+import numpy as np
 import pytorch_lightning as pl
 from pytorch_lightning.loggers import TensorBoardLogger, WandbLogger
 
 from pytorch_lightning.strategies.ddp import DDPStrategy
 from pytorch_lightning import Trainer  # , LightningModule
 
-try:
-    __IPYTHON__
-except:
-    prefix = ""  # or "../"
-else:
-    prefix = "../"  # or "../"
+# try:
+#     __IPYTHON__
+# except:
+#     prefix = ""  # or "../"
+# else:
+#     prefix = "../"  # or "../"
 
-sys.path.append(f"{prefix}src")
+sys.path.append(".")
 # from utils import read_pretrained_model
 # from HummingbirdLoader import HeronLoader, Denormalize
-from HummingbirdModel import HummingbirdModel
+from src.HummingbirdModel import HummingbirdModel
 
 # %%
 
-if __name__ == "__main__":
-    # scripts/Lit_hummingbird_finetune.py --batch_size=185 --data_dir=data/bal_cla_diff_loc_all_vid/
-    # --learning_rate=0.00010856749693422446
-    # --num_workers_loader=20 --pretrained_network=resnet18
 
-    # Define checkpoints callbacks
+def train_model(args, cfg):
     # best model on validation
     best_val_cb = pl.callbacks.ModelCheckpoint(
         filename="best-val-{epoch}-{step}-{val_loss:.1f}",
@@ -57,6 +56,21 @@ if __name__ == "__main__":
         step_size_decay=20,
     )
 
+    # Check if there is a model to load, if there is, load it and train from there
+    if args.save_model.exists() and args.save_model.is_dir():
+        if args.verbose:
+            print(f"Loading model from {args.save_model}")
+        try:
+            fmodel = list(args.save_model.glob("last-*.ckpt"))[0]
+        except:
+            print("No last-* model in folder, loading best model")
+            fmodel = list(
+                args.save_model.glob("best-val-epoch=*-step=*-val_loss=*.*.ckpt")
+            )[-1]
+
+        print(f"Loading model from {fmodel}")
+        model = model.load_from_checkpoint(fmodel)
+
     # %%
     name_run = "asymmetric_data_augm_very_long"  # f"{model.pretrained_network}"
     cbacks = [pbar_cb, best_val_cb, last_mod_cb]
@@ -80,3 +94,47 @@ if __name__ == "__main__":
     )
 
     trainer.fit(model)
+    return f"model {model.pretrained_network} trained"
+
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "--config_file",
+        type=str,
+        required=True,
+        help="path to config file with per-script args",
+    )
+    parser.add_argument(
+        "--input_dir",
+        type=str,
+        required=True,
+        help="path with images for training",
+    )
+    parser.add_argument(
+        "--save_model",
+        type=str,
+        required=True,
+        help="path to where to save model checkpoints",
+    )
+    parser.add_argument("--verbose", "-v", action="store_true", help="print more info")
+    args = parser.parse_args()
+
+    with open(str(args.config_file), "r") as f:
+        cfg = yaml.load(f, Loader=yaml.FullLoader)
+
+    cfg = cfg_to_arguments(cfg)
+
+    if args.verbose:
+        print(f"main args: {args}")
+        print(f"scripts config: {cfg}")
+
+    args.input_dir = Path(args.input_dir)
+    args.save_model = Path(args.save_model)
+    args.save_model = args.save_model / "checkpoints"
+
+    np.random.seed(cfg.glob_random_seed)  # apply this seed to img tranfsorms
+    torch.manual_seed(cfg.glob_random_seed)  # needed for torchvision 0.7
+    torch.cuda.manual_seed(cfg.glob_random_seed)  # needed for torchvision 0.7
+
+    sys.exit(main(args, cfg))

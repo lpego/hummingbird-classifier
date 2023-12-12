@@ -167,6 +167,7 @@ if 1:
     files = dataloader.dataset.img_paths.copy()
 
     fpath = Path(f"/data/shared/frame-diff-anomaly/data/{vname}/_scores_triplet.csv")
+    
     if compute_triplet & (not fpath.is_file()):
         score_t_diff = main_triplet_difference(fpath.parent, save_csv="triplet")
 

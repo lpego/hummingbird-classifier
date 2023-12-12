@@ -65,12 +65,12 @@ def prepare_sets(vid_parsing_pars, videos, config):
     # ii) group data by "waypoint", but could also be "site"
     # iii) ensure no image from the same grouping variable is included in more than one learning set. The initial waypoint splitting is mixed at random (as videos in the sections above)
 
-    annotations = pd.read_csv(config.annotations_file)
+    annotations = pd.read_csv(config.data_annotations_file)
     annotations = annotations.loc[annotations.file_exists, :]
 
     sites, counts = np.unique(annotations.waypoint.astype(str), return_counts=True)
 
-    np.random.seed(config.rng_seed)
+    np.random.seed(config.glob_random_seed)
     rand_ind_list = np.random.permutation(np.arange(len(sites)))
     sites = sites[rand_ind_list]
     counts = counts[rand_ind_list]
@@ -102,11 +102,10 @@ def prepare_sets(vid_parsing_pars, videos, config):
         },
     }
 
-    print(f"{len(sites)} sites from {config.annotations_file}")
+    print(f"{len(sites)} sites from {config.data_annotations_file}")
 
     # split still frames in the data dump into training, validation and test.
 
-    COPY_POSITIVES = True
     if (
         vid_parsing_pars["positive_data_subfolder"]
         == vid_parsing_pars["negative_data_subfolder"]
@@ -124,10 +123,9 @@ def prepare_sets(vid_parsing_pars, videos, config):
                 for image in data_bag:
                     fname = transform_path_to_name(image)
                     copyfile(
-                        Path(config.still_frames_location) / image,
+                        Path(config.data_still_frames_location) / image,
                         stills_learn_set[l_set]["folder"] / fname,
                     )
-    # %%
     # Get positive class size and compute negative fractions
 
     root = vid_parsing_pars["positive_data_subfolder"]
@@ -149,7 +147,7 @@ def prepare_sets(vid_parsing_pars, videos, config):
         int(0.2 * len(videos)),
     )
 
-    np.random.seed(config.rng_seed)
+    np.random.seed(config.glob_random_seed)
     np.random.shuffle(videos)
     trv = videos[:trs]
     vav = videos[trs : (trs + vas)]
@@ -214,7 +212,7 @@ def prepare_sets(vid_parsing_pars, videos, config):
     )
 
     # compute per video frame sampling rate to be balanced wrt positive class
-    bias = config.sampling_rate_negatives
+    bias = config.data_sampling_rate_negatives
     for i, key in enumerate(vids_learn_set.keys()):
         vids_learn_set[key]["n_per_neg_vid"] = bias[i] + 2 * np.ceil(
             n_frames[key]["n_positives"] / len(vids_learn_set[key]["vids"])
@@ -224,7 +222,7 @@ def prepare_sets(vid_parsing_pars, videos, config):
     learning_sets = ["trn", "val", "tst"]
     if vid_parsing_pars["parallell_process"]:
         pool = Parallel(
-            n_jobs=config.cpu_cores_parallel_jobs, verbose=1, backend="threading"
+            n_jobs=config.data_cpu_cores_parallel_jobs, verbose=1, backend="threading"
         )
 
     for l_set in learning_sets:
@@ -246,17 +244,17 @@ def prepare_sets(vid_parsing_pars, videos, config):
                     save_fold, video, vids_learn_set[l_set]["n_per_neg_vid"]
                 )
 
-    root = Path("/data/shared/hummingbird-classifier/data")
-    paths = ["trn_set", "val_set", "tst_set"]
+    # root = Path("/data/shared/hummingbird-classifier/data")
+    # paths = ["trn_set", "val_set", "tst_set"]
 
-    for subd in ["positive_data_subfolder", "negative_data_subfolder"]:
-        for fold in paths:
-            fdir = root / (vid_parsing_pars[subd] + "/" + fold)
-            for class_dir in fdir.iterdir():
-                n_files = len(list(class_dir.glob("*.jpg")))
-                print(
-                    f"{root}, {vid_parsing_pars[subd] + '/' + fold}, {class_dir.name}, {n_files}"
-                )
+    # for subd in ["positive_data_subfolder", "negative_data_subfolder"]:
+    #     for fold in paths:
+    #         fdir = root / vid_parsing_pars[subd] / fold
+    #         for class_dir in fdir.iterdir():
+    #             n_files = len(list(class_dir.glob("*.jpg")))
+    #             print(
+    #                 f"{root}, {vid_parsing_pars[subd] / fold}, {class_dir.name}, {n_files}"
+    #             )
 
 
 if __name__ == "__main__":
@@ -280,7 +278,7 @@ if __name__ == "__main__":
         args.config = yaml.safe_load(f)
     config = cfg_to_arguments(args.config)
 
-    config.still_frames_location = Path(config.still_frames_location)
+    config.data_still_frames_location = Path(config.data_still_frames_location)
 
     ## BALANCED
     # FREQ = 33 # for unique videos
@@ -291,16 +289,16 @@ if __name__ == "__main__":
     # positive and negative folders can be different for positives and negatives, but does not look like a good idea
     # Will need to be changed accordingly in the HummingbirdModel class
     vid_parsing_pars = {
-        "parallell_process": config.cpu_cores_parallel_jobs
+        "parallell_process": config.data_cpu_cores_parallel_jobs
         > 1,  # make video frame extraction in parallel on CPU
         "positive_data_subfolder": Path(
-            f"{config.root_folder}/{args.learning_set_folder}"
+            f"{config.glob_root_folder}/{args.learning_set_folder}"
         ),
         "negative_data_subfolder": Path(
-            f"{config.root_folder}/{args.learning_set_folder}"
+            f"{config.glob_root_folder}/{args.learning_set_folder}"
         ),
     }
-    current_vid_root = Path(config.current_video_root)
+    current_vid_root = Path(config.data_current_video_root)
     video_list = sorted(list(current_vid_root.glob("RECODED_HummingbirdVideo*/*.avi")))
 
     prepare_sets(vid_parsing_pars, video_list, config)

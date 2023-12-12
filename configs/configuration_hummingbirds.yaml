@@ -1,0 +1,25 @@
+# This file contains the configuration for the Hummingbirds pipeline 
+glob_root_folder: /data/shared/hummingbird-classifier
+glob_video_folder: /data/shared/raw-data-import/data/raw-hierarchy/
+glob_random_seed: 42
+glob_video_format: 'mp4' # Video format of the ouput videos
+
+# Data and preprocessing configuration 
+data_still_frames_location: /data/shared/raw-data-import/data/raw-hierarchy/
+data_target_learning_set_location: /data/shared/hummingbird-classifier
+data_annotations_file: /data/shared/raw-data-import/data/annotations/Interactions_corrected.csv
+data_sampling_rate_negatives: [75, 4, 4] # list of intervals from which to sample negtative frames (trn/val/tst)
+data_current_video_root: /data/shared/raw-video-import/data/
+data_cpu_cores_parallel_jobs: 4
+
+# Fine tuning configuration for Hummingbirds
+trcl_model_pretrarch: "convnext-small"
+trcl_learning_rate: 0.0001
+trcl_batch_size: 32
+trcl_weight_decay: 0
+trcl_number_epochs: 100
+trcl_step_size_decay: 5
+trcl_num_workers: 16
+trcl_wandb_project_name: hummingbird-classification # needed if using weight and biases logger
+trcl_logger: wandb # tensorboard | wandb -- select the logger for training
+trcl_save_topk: 1
