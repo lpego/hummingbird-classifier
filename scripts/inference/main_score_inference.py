@@ -137,12 +137,19 @@ def per_video_frame_inference(video_folder, args, config):
         video_scores.to_csv(args.output_file_dataframe, index=False)
 
     if args.update or file_missing or update_change:
-        change_d = main_triplet_difference(
-            video_folder,
-            save_csv=args.output_file_dataframe.parents[0] / f"_score_{video_name}.csv",
+        change_det_file = (
+            args.output_file_dataframe.parents[0] / f"_score_{video_name}.csv"
         )
-
-        # video_scores.to_csv(args.output_file_dataframe, index=False)
+        if change_det_file.exists():
+            change_d = pd.read_csv(change_det_file)
+        else:
+            change_d = main_triplet_difference(
+                video_folder,
+                save_csv=args.output_file_dataframe.parents[0]
+                / f"_score_{video_name}.csv",
+            )
+        video_scores["change_score"] = change_d["mag_std"]
+        video_scores.to_csv(args.output_file_dataframe, index=False)
 
     if args.update or file_missing or update_gt:
         video_scores["ground_truth"] = -1 * np.ones((len(video_scores.ground_truth),))
