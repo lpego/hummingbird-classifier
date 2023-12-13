@@ -15,39 +15,18 @@ import pandas as pd
 import pytorch_lightning as pl
 
 from pathlib import Path
-from PIL import Image
-
-from matplotlib import pyplot as plt
 from skimage import exposure
-
 
 sys.path.append(".")
 
 from src.utils import (
-    read_pretrained_model,
     find_checkpoints,
-    Denormalize,
     cfg_to_arguments,
 )
 from src.ChangeDetectionUtils import main_triplet_difference
-
-# from src.HummingbirdLoader import HummingbirdLoader
 from src.HummingbirdModel import HummingbirdModel
 
 
-# %%
-# args = {}
-# args["model_path"] = Path("/data/shared/hummingbird-classifier/models/convnext_v0")
-# args["video_name"] = Path("/data/shared/frame-diff-anomaly/data/FH102_02")
-# args["annotation_file"] = Path(
-#     "/data/shared/hummingbird-classifier/data/Weinstein2018MEE_ground_truth.csv"
-# )
-# args["output_file_dataframe"] = Path(
-#     "/data/shared/hummingbird-classifier/outputs/video_scores/"
-# )
-# args["update"] = False
-# args = cfg_to_arguments(args)
-# %%
 def per_video_frame_inference(video_folder, args, config):
     """
     Predict scores for frame of a given video
@@ -90,15 +69,15 @@ def per_video_frame_inference(video_folder, args, config):
     model.eval()
 
     # Load video into dataloader
-    video_name = args.video_name
+    video_name = video_folder.stem
 
     # This is file specific, different CSV might have different colnames etc
     annot = pd.read_csv(args.annotation_file).drop_duplicates()
-    annot = annot[annot.Video == video_name.stem].sort_values("Frame")
+    annot = annot[annot.Video == video_name].sort_values("Frame")
     annot.Truth = annot.Truth.apply(lambda x: x == "Positive")
     annot.Frame -= 1  # count from 0
 
-    args.output_file_dataframe = args.output_file_dataframe / f"{video_name.stem}.csv"
+    args.output_file_dataframe = args.output_file_dataframe / f"{video_name}.csv"
 
     # %%
     # now check if all scores are in the prediction csv summary, if not (or if flag "update == True") compute
@@ -127,7 +106,7 @@ def per_video_frame_inference(video_folder, args, config):
         )
 
     if args.update or file_missing or update_score:
-        dataloader = model.tst_external_dataloader(path=video_name, batch_size=64)
+        dataloader = model.tst_external_dataloader(path=video_folder, batch_size=64)
 
         pbar_cb = pl.callbacks.progress.TQDMProgressBar(refresh_rate=5)
         trainer = pl.Trainer(
@@ -159,13 +138,10 @@ def per_video_frame_inference(video_folder, args, config):
 
     if args.update or file_missing or update_change:
         change_d = main_triplet_difference(
-            video_name,
-            save_csv=args.output_file_dataframe.parents[0]
-            / f"_score_{video_name.stem}.csv",
+            video_folder,
+            save_csv=args.output_file_dataframe.parents[0] / f"_score_{video_name}.csv",
         )
-        # video_scores["change_score"] = main_triplet_difference(
-        #     video_name  # , args.output_file_dataframe
-        # )
+
         # video_scores.to_csv(args.output_file_dataframe, index=False)
 
     if args.update or file_missing or update_gt:
@@ -182,28 +158,30 @@ if __name__ == "__main__":
     args = argparse.ArgumentParser(description="Hummingbird inference script")
     args.add_argument(
         "--model_path",
-        type=str,
+        type=Path,
         help="Path to the model checkpoint to use for inference",
     )
     args.add_argument(
-        "--video_name",
-        type=str,
-        help="Path to the video(s) to run inference on",
+        "--videos_root_folder",
+        type=Path,
+        help="Path to the video(s) subfolders, where each will be parsed. Each subfolder at this level should contain the frames of a given video, as jpg files",
     )
     args.add_argument(
         "--annotation_file",
-        type=str,
+        type=Path,
         help="Path to the video frames annotation file",
     )
     args.add_argument(
         "--output_file_dataframe",
-        type=str,
+        type=Path,
         help="Path to the folder where results / score CSV are stored",
     )
     args.add_argument(
         "--update",
+        "-u",
+        action="store_true",
         type=bool,
-        help="Flag to force recomputing the scores",
+        help="Flag to force recomputing (all) the scores",
     )
     args.add_argument(
         "--config_file",
@@ -218,5 +196,28 @@ with open(args.config_file, "r") as f:
 
 config = cfg_to_arguments(config)
 
-for video_folder in args.video_name:
-    sys.exit(per_video_frame_inference(video_folder, args, config))
+# create output folder if it does not exist
+if not args.output_file_dataframe.exists():
+    args.output_file_dataframe.mkdir(parents=True)
+
+video_list = sorted(list(args.videos_root_folder.glob("*")))
+print(f"Found {len(video_list)} videos, running inference on those.")
+for video in video_list:
+    print(video)
+
+for video in video_list[:1]:
+    sys.exit(per_video_frame_inference(video, args, config))
+
+
+# %%
+# args = {}
+# args["model_path"] = Path("/data/shared/hummingbird-classifier/models/convnext_v0")
+# args["video_name"] = Path("/data/shared/frame-diff-anomaly/data/FH102_02")
+# args["annotation_file"] = Path(
+#     "/data/shared/hummingbird-classifier/data/Weinstein2018MEE_ground_truth.csv"
+# )
+# args["output_file_dataframe"] = Path(
+#     "/data/shared/hummingbird-classifier/outputs/video_scores/"
+# )
+# args["update"] = False
+# args = cfg_to_arguments(args)
