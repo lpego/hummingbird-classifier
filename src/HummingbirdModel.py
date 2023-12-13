@@ -337,7 +337,7 @@ class HummingbirdModel(pl.LightningModule):
             tst_d, batch_size=self.batch_size, num_workers=self.num_workers_loader
         )
 
-    def tst_external_dataloader(self, path):
+    def tst_external_dataloader(self, path, batch_size=16):
         """
         def of test dataloader from external data. All loaded as `negative` samples,
         but just for convenience to maintain ordering"
@@ -353,7 +353,11 @@ class HummingbirdModel(pl.LightningModule):
         )
 
         return DataLoader(
-            tst_ex_d, batch_size=self.batch_size, num_workers=self.num_workers_loader
+            tst_ex_d,
+            batch_size=batch_size,
+            num_workers=self.num_workers_loader,
+            shuffle=False,
+            drop_last=False,
         )
 
 
