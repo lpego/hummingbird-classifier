@@ -217,12 +217,6 @@ with open(args.config_file, "r") as f:
     config = yaml.load(f, Loader=yaml.FullLoader)
 
 config = cfg_to_arguments(config)
-# if video is a list of len > 1, the main function above will be called for each video in a loop for bulk processing
-# else, the main function will be called for the single video
 
-if len(args.video_name) > 1:
-    for video_folder in args.video_name:
-        sys.exit(per_video_frame_inference(video_folder, args, config))
-else:
-    video_folder = args.video_name[0]
+for video_folder in args.video_name:
     sys.exit(per_video_frame_inference(video_folder, args, config))
