@@ -11,6 +11,9 @@ import numpy as np
 import yaml
 
 import torch
+
+torch.hub.set_dir("/data/shared/hummingbird-classifier/models/")
+
 import pytorch_lightning as pl
 from pytorch_lightning.loggers import WandbLogger, TensorBoardLogger
 from pytorch_lightning.strategies.ddp import DDPStrategy
@@ -97,7 +100,9 @@ def main(args, cfg):
         model = model.load_from_checkpoint(fmodel)
 
     # Define logger and name of run
-    name_run = f"classifier-{cfg.trcl_model_pretrarch}"  # f"{model.pretrained_network}"
+    name_run = (
+        f"classifier-{args.save_model.parents[0].name}"  # f"{model.pretrained_network}"
+    )
     cbacks = [pbar_cb, best_val_cb, last_mod_cb, trdatelog]
 
     # Define logger, and use either wandb or tensorboard

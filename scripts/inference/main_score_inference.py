@@ -71,14 +71,17 @@ def per_video_frame_inference(video_folder, args, config):
     # Load video into dataloader
     video_name = video_folder.stem
 
+    #
     # This is file specific, different CSV might have different colnames etc
     annot = pd.read_csv(args.annotation_file).drop_duplicates()
     annot = annot[annot.Video == video_name].sort_values("Frame")
-    annot.Truth = annot.Truth.apply(lambda x: x == "Positive")
+    annot = annot.replace({"Positive": 1.0, "Negative": 0.0})
+    # annot.Truth = annot.Truth.apply(lambda x: x == "Positive")
     annot.Frame -= 1  # count from 0
+    annot = annot.set_index("Frame")
 
-    args.output_file_dataframe = args.output_file_dataframe / f"{video_name}.csv"
-
+    args.output_file_dataframe = args.output_file_folder / f"{video_name}.csv"
+    print(args.output_file_dataframe)
     # %%
     # now check if all scores are in the prediction csv summary, if not (or if flag "update == True") compute
     # 1 - ouput frame probabilities from trained model
@@ -138,22 +141,22 @@ def per_video_frame_inference(video_folder, args, config):
 
     if args.update or file_missing or update_change:
         change_det_file = (
-            args.output_file_dataframe.parents[0] / f"_score_{video_name}.csv"
+            args.output_file_dataframe.parents[1]
+            / f"{video_name}_change_diff_scores.csv"
         )
         if change_det_file.exists():
             change_d = pd.read_csv(change_det_file)
         else:
             change_d = main_triplet_difference(
                 video_folder,
-                save_csv=args.output_file_dataframe.parents[0]
-                / f"_score_{video_name}.csv",
+                save_csv=change_det_file,
             )
         video_scores["change_score"] = change_d["mag_std"]
         video_scores.to_csv(args.output_file_dataframe, index=False)
 
     if args.update or file_missing or update_gt:
         video_scores["ground_truth"] = -1 * np.ones((len(video_scores.ground_truth),))
-        video_scores["ground_truth"].iloc[annot.Frame.values] = annot.Truth.astype(int)
+        video_scores.loc[annot.index, "ground_truth"] = annot.Truth
         video_scores.to_csv(args.output_file_dataframe, index=False)
 
     return None
@@ -179,7 +182,7 @@ if __name__ == "__main__":
         help="Path to the video frames annotation file",
     )
     args.add_argument(
-        "--output_file_dataframe",
+        "--output_file_folder",
         type=Path,
         help="Path to the folder where results / score CSV are stored",
     )
@@ -187,13 +190,12 @@ if __name__ == "__main__":
         "--update",
         "-u",
         action="store_true",
-        type=bool,
         help="Flag to force recomputing (all) the scores",
     )
     args.add_argument(
         "--config_file",
         "-c",
-        type=str,
+        type=Path,
         help="Path to the config file",
     )
     args = args.parse_args()
@@ -204,16 +206,17 @@ with open(args.config_file, "r") as f:
 config = cfg_to_arguments(config)
 
 # create output folder if it does not exist
-if not args.output_file_dataframe.exists():
-    args.output_file_dataframe.mkdir(parents=True)
+if not args.output_file_folder.exists():
+    args.output_file_folder.mkdir(parents=True)
 
 video_list = sorted(list(args.videos_root_folder.glob("*")))
 print(f"Found {len(video_list)} videos, running inference on those.")
-for video in video_list:
-    print(video)
+# for video in video_list:
+#     print(video)
 
-for video in video_list[:1]:
-    sys.exit(per_video_frame_inference(video, args, config))
+for video in video_list[:]:
+    print(f"Running inference on {video}")
+    per_video_frame_inference(video, args, config)
 
 
 # %%

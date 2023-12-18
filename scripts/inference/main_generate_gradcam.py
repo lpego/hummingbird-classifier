@@ -19,21 +19,7 @@ from src.utils import (
 )
 
 
-def per_video_assessment(video_folder, args, config):
-    """
-
-    Parameters
-    ----------
-
-    Returns
-    -------
-
-    """
-
-    return None
-
-
-def aggregate_assessment():
+def per_video_gradcam(video_result, args, config):
     """
 
     Parameters

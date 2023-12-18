@@ -8,7 +8,12 @@ from PIL import Image
 # import datetime
 
 import torch
+
+torch.hub.set_dir("/data/shared/hummingbird-classifier/models/")
+
 import pytorch_lightning as pl
+
+# import numpy as np
 
 from torch import nn
 from torch.nn import functional as F
@@ -171,7 +176,7 @@ class HummingbirdModel(pl.LightningModule):
         self.log("trn_prec", prec[1], prog_bar=False, sync_dist=True)
         self.log("trn_reca", reca[1], prog_bar=False, sync_dist=True)
         self.log("trn_f1", f1_sc, prog_bar=False, sync_dist=True)
-
+        self.log("learning_rate", self.learning_rate, prog_bar=True, sync_dist=False)
         return loss
 
     def validation_step(self, batch, batch_idx, print_log: str = "val"):
@@ -190,6 +195,13 @@ class HummingbirdModel(pl.LightningModule):
         self.log(f"{print_log}_acc", f1_sc, prog_bar=True, sync_dist=True)
         self.log(f"{print_log}_prec", prec[1], prog_bar=False, sync_dist=True)
         self.log(f"{print_log}_reca", reca[1], prog_bar=False, sync_dist=True)
+        self.log(
+            f"{print_log}_pred_counts",
+            preds.sum(),
+            prog_bar=False,
+            sync_dist=True,
+        )
+
         return loss
 
     def test_step(self, batch, batch_idx, print_log: str = "tst"):
@@ -213,6 +225,15 @@ class HummingbirdModel(pl.LightningModule):
             lr=self.learning_rate,
             weight_decay=self.weight_decay,
         )
+
+        # scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
+        #     optimizer,
+        #     mode="min",
+        #     patience=self.step_size_decay,
+        #     cooldown=0,
+        #     factor=0.1,
+        # )
+
         return {
             "optimizer": optimizer,
             "lr_scheduler": {
@@ -220,7 +241,7 @@ class HummingbirdModel(pl.LightningModule):
                     optimizer,
                     mode="min",
                     patience=self.step_size_decay,
-                    cooldown=5,
+                    cooldown=0,
                     factor=0.1,
                 ),
                 "monitor": "val_loss",

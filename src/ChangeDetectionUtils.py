@@ -17,9 +17,9 @@ import multiprocessing
 from joblib import Parallel, delayed
 from tqdm import tqdm
 
+
 # %%
 def magnitude_score(impair, pars):
-
     ims = pars["imsize"]
     try:
         im_0 = Image.open(impair[0]).convert("RGB")
@@ -69,7 +69,7 @@ def magnitude_score(impair, pars):
     iqr = q3 - q1
 
     med = np.mean(np.abs(dm - 0.5))
-    euc = np.mean(dm ** 2)
+    euc = np.mean(dm**2)
     return (
         impair[1].name,
         np.std(dm),
@@ -78,15 +78,15 @@ def magnitude_score(impair, pars):
         iqr,
     )
 
-def magnitude_score_v2(impair, pars):
 
+def magnitude_score_v2(impair, pars):
     ims = pars["imsize"]
 
     try:
         im_0 = Image.open(impair[0]).convert("RGB")
         im_1 = Image.open(impair[1]).convert("RGB")
         im_2 = Image.open(impair[2]).convert("RGB")
-        
+
     except OSError:
         print(f"one of {impair} is kaputt")
         return (
@@ -132,7 +132,7 @@ def magnitude_score_v2(impair, pars):
     iqr = q3 - q1
 
     med = np.mean(np.abs(dm - 0.5))
-    euc = np.mean(dm ** 2)
+    euc = np.mean(dm**2)
     return (
         impair[1].name,
         np.std(dm),
@@ -147,8 +147,8 @@ def main_triplet_difference(folder_frames, save_csv=None):
     num_cores = multiprocessing.cpu_count()
     pool = Parallel(n_jobs=num_cores)
     print(f"Parsing triplet difference of {folder_frames} on {num_cores} cores")
-    
-    #%  Run on data in all subfolders
+
+    # Run on data in all subfolders
     pars = {
         "thr_mag": 0.75,  # threshold on norm \propto anomaly score
         "thr_count": 0.02,  # percentage of out-of-threshold pixels
@@ -164,11 +164,7 @@ def main_triplet_difference(folder_frames, save_csv=None):
         "do_filt": True,
         "filt_rad": 3,
     }
-
-    # data_path = f"{prefix}Canopy_Trail1_1st_round/O3_E_up/101_WSCT/"
-
-    data_ = list(folder_frames.glob("*.jpg"))
-    data_.sort()
+    data_ = sorted(list(folder_frames.glob("*.jpg")))
 
     dt = pars["delta_frame"]
     dlist = [
@@ -178,14 +174,22 @@ def main_triplet_difference(folder_frames, save_csv=None):
     outs = pool(delayed(magnitude_score)(imp, pars) for imp in tqdm(dlist))
     # outs = pool(delayed(magnitude_score_v2)(imp, pars) for imp in tqdm(dlist))
 
-    outs = np.concatenate((pars["delta_frame"] * [["frame_0.jpg", 0, 0, 0, 0]], outs, pars["delta_frame"]*[["frame_99999.jpg", 0, 0, 0, 0]]), axis=0)
+    outs = np.concatenate(
+        (
+            pars["delta_frame"] * [["frame_0.jpg", 0, 0, 0, 0]],
+            outs,
+            pars["delta_frame"] * [["frame_99999.jpg", 0, 0, 0, 0]],
+        ),
+        axis=0,
+    )
 
     score = pd.DataFrame(
-            outs, columns=["fname", "mag_std", "mag_euc", "mag_med", "mag_iqr"],
-        )
+        outs,
+        columns=["fname", "mag_std", "mag_euc", "mag_med", "mag_iqr"],
+    )
     score.append
     if save_csv:
-        score.to_csv(folder_frames / f"_scores_{save_csv}.csv")
+        score.to_csv(save_csv, index=False)
 
     return score
     # %%
