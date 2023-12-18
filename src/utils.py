@@ -154,8 +154,8 @@ def read_pretrained_model(architecture, n_class):
         model.classifier[2] = nn.Linear(
             in_features=model.classifier[2].in_features, out_features=n_class, bias=True
         )
-        for param in model.parameters():
-            param.requires_grad = True
+        # for param in model.parameters():
+        # param.requires_grad = True
 
         for param in model.classifier[2].parameters():
             param.requires_grad = True

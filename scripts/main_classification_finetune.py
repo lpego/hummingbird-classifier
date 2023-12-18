@@ -85,19 +85,20 @@ def main(args, cfg):
     )
 
     # Check if there is a model to load, if there is, load it and train from there
-    if args.save_model.exists() and args.save_model.is_dir():
-        if args.verbose:
-            print(f"Loading model from {args.save_model}")
-        try:
-            fmodel = list(args.save_model.glob("last-*.ckpt"))[0]
-        except:
-            print("No last-* model in folder, loading best model")
-            fmodel = list(
-                args.save_model.glob("best-val-epoch=*-step=*-val_loss=*.*.ckpt")
-            )[-1]
+    if False:  # majke this a flag
+        if args.save_model.exists() and args.save_model.is_dir():
+            if args.verbose:
+                print(f"Loading model from {args.save_model}")
+            try:
+                fmodel = list(args.save_model.glob("last-*.ckpt"))[0]
+            except:
+                print("No last-* model in folder, loading best model")
+                fmodel = list(
+                    args.save_model.glob("best-val-epoch=*-step=*-val_loss=*.*.ckpt")
+                )[-1]
 
-        print(f"Loading model from {fmodel}")
-        model = model.load_from_checkpoint(fmodel)
+            print(f"Loading model from {fmodel}")
+            model = model.load_from_checkpoint(fmodel)
 
     # Define logger and name of run
     name_run = (

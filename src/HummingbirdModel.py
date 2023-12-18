@@ -197,7 +197,7 @@ class HummingbirdModel(pl.LightningModule):
         self.log(f"{print_log}_reca", reca[1], prog_bar=False, sync_dist=True)
         self.log(
             f"{print_log}_pred_counts",
-            preds.sum(),
+            preds.sum().float(),
             prog_bar=False,
             sync_dist=True,
         )
