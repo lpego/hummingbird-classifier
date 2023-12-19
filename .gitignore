@@ -4,6 +4,7 @@
 
 .vscode/
 lostandfound/ 
+docs/build/
 
 *.jpg
 *.jpeg
