@@ -8,7 +8,10 @@ Welcome to hummingbird-classifier's documentation!
 
 .. toctree::
    :maxdepth: 2
-   :caption: Contents:
+   :caption: hummingbird-classfiier module
+   :hidden: 
+
+   files/modules/hummingbird-classifier
 
 Indices and tables
 ==================
