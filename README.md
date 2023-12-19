@@ -1,40 +1,50 @@
-# hummingbird-classifier
+[![ReadTheDocs status](https://readthedocs.org/projects/hummingbird-classifier/badge/?version=latest)](https://hummingbird-classifier.readthedocs.io/en/latest/?badge=latest)
+![GitLab Docker build](https://gitlab.renkulab.io/biodetect/hummingbird-classifier/badges/master/pipeline.svg)
 
 basic hummingbird classifier based on convnets
 
-## Introduction
+# What is hummingbird-classifier? 
+`hummingbird-classifier` is an image processing pipeline for file images of hummingbirds visiting a focal plant. 
 
-This is a Renku project - basically a git repository with some
-bells and whistles. You'll find we have already created some
-useful things like `data` and `notebooks` directories and
-a `Dockerfile`.
+## What can it be used for? 
+[...]
 
-## Working with the project
+## Who can use it? 
+[...]
 
-The simplest way to start your project is right from the Renku
-platform - just click on the `Environments` tab and start a new session.
-This will start an interactive environment right in your browser.
+-------------------------------------------
 
-To work with the project anywhere outside the Renku platform,
-click the `Settings` tab where you will find the
-git repo URLs - use `git` to clone the project on whichever machine you want.
+# Get started
+<!-- LINKS -->
+The documentation is being finished, [ReadTheDocs](https://hummingbird-classifier.readthedocs.io/en/latest/) link coming soon. 
 
-### Changing interactive environment dependencies
+Direct links to docs sections: 
 
-Initially we install a very minimal set of packages to keep the images small.
-However, you can add python and conda packages in `requirements.txt` and
-`environment.yml` to your heart's content. If you need more fine-grained
-control over your environment, please see [the documentation](https://renku.readthedocs.io/en/latest/user/advanced_interfaces.html#dockerfile-modifications).
+1. Installation 
 
-## Project configuration
+2. Workflow and Models
 
-Project options can be found in `.renku/renku.ini`. In this
-project there is currently only one option, which specifies
-the default type of environment to open, in this case `/lab` for
-JupyterLab. You may also choose `/tree` to get to the "classic" Jupyter
-interface.
+3. Examples
 
-## Moving forward
+4. Processing scripts
 
-Once you feel at home with your project, we recommend that you replace
-this README file with your own project documentation! Happy data wrangling!
+-------------------------------------------
+
+## Contributions
+<!-- AUTHORS -->
+
+<!-- CONTACTS -->
+
+<!-- FEATURE REQUESTS?  -->
+
+<!-- ### How to cite
+LEAVE BLANK FOR PREPRINT OR PAPER
+------------------------------------------- -->
+
+## Changelog 
+
+**v0.0.0** Never did we track versions before for this... 
+
+## ToDo list
+
+*TBD*
