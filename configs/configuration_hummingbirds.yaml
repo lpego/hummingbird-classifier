@@ -14,10 +14,10 @@ data_cpu_cores_parallel_jobs: 4
 
 # Fine tuning configuration for Hummingbirds
 trcl_model_pretrarch: "densenet161" # "convnext-small"
-trcl_learning_rate: 0.001
+trcl_learning_rate: 0.0001
 trcl_batch_size: 32
-trcl_weight_decay: 0
-trcl_number_epochs: 25
+trcl_weight_decay: 0.0000001
+trcl_number_epochs: 50
 trcl_step_size_decay: 1
 trcl_num_workers: 16
 trcl_wandb_project_name: hummingbird-classification # needed if using weight and biases logger
@@ -25,7 +25,13 @@ trcl_logger: wandb # tensorboard | wandb -- select the logger for training
 trcl_save_topk: 1
 
 # Inference configuration
+infe_load_model: last
 infe_weight_classification_score: 0.7
 infe_weight_classification_dynamic: 0.1
 infe_weight_triplet_change_detection: 0.2
 infe_top_k: [0.001, 0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5]
+
+
+# learning_rate=2.5e-7,  # 1e-6
+# batch_size=64,
+# weight_decay=1e-8

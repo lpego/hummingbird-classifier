@@ -288,7 +288,7 @@ class HummingbirdModel(pl.LightningModule):
             learning_set="trn",
             ls_inds=[],
             transforms={  # self.transform_tr_n,
-                "0": self.transform_tr_n,
+                "0": self.transform_tr_p,
                 "1": self.transform_tr_p,
             },  # can load two sets of transforms, one for positives one for negatives
         )

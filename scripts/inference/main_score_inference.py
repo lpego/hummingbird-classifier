@@ -47,7 +47,7 @@ def per_video_frame_inference(video_folder, args, config):
     """
 
     # Load trained model
-    dirs = find_checkpoints(args.model_path, type="best")
+    dirs = find_checkpoints(args.model_path, type=config.infe_load_model)
     mod_path = dirs[
         -1
     ]  # pick last if several best (in config can be set how many topK models to keep)
@@ -81,8 +81,7 @@ def per_video_frame_inference(video_folder, args, config):
     annot = annot.set_index("Frame")
 
     args.output_file_dataframe = args.output_file_folder / f"{video_name}.csv"
-    print(args.output_file_dataframe)
-    # %%
+
     # now check if all scores are in the prediction csv summary, if not (or if flag "update == True") compute
     # 1 - ouput frame probabilities from trained model
     # try to read the results csv, and get columns. if the file does not exist, raise a flag
