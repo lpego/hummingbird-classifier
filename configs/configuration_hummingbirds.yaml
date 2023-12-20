@@ -25,7 +25,7 @@ trcl_logger: wandb # tensorboard | wandb -- select the logger for training
 trcl_save_topk: 1
 
 # Inference configuration
-infe_weight_classification_score: 0.6
-infe_weight_classification_dynamic: 0.2
-infe_weight_triplet_change_detection: 0.2
-
+infe_weight_classification_score: 0.8
+infe_weight_classification_dynamic: 0.1
+infe_weight_triplet_change_detection: 0.1
+infe_top_k: [0.001, 0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5]
