@@ -167,200 +167,199 @@ def per_video_assessment(score_file, top_k, config):
 
 # %%
 
-# if __name__ == "__main__":
-# args = argparse.ArgumentParser(description="Hummingbird inference script")
-# args.add_argument(
-#     "--results_path",
-#     type=Path,
-#     help="Path to the video_scores sub-folder, specific to a model. This folder contains CSV files with the raw pipeline scores for each video",
-# )
-# args.add_argument(
-#     "--config_file",
-#     type=Path,
-#     help="Path to the configuration file",
-# args.add_argument(
-#     "--update",
-#     action="store_true",
-#     help="If set, will recompute the metrics for all videos in the folder",
-# )
-# args.add_argument(
-#     "--aggregate",
-#     action="store_true",
-#     help="If set, will aggregate the metrics for all videos in the folder",
-# )
-# args = args.parse_args()
-args = {}
-args["results_path"] = Path(
-    "/data/shared/hummingbird-classifier/outputs/video_scores/densenet161-v1"
-)
-args["config_file"] = Path(
-    "/data/shared/hummingbird-classifier/configs/configuration_hummingbirds.yaml"
-)
-args["update"] = True
-args["aggregate"] = True
-args = cfg_to_arguments(args)
+def aggregate_assessments(video_metrics, config):
+    """
+    This function aggregates the results of the per-video assessment into a single json file
+    - Reads the metrics json files for each video
+    - Aggregates the results for each K
+    - Saves the results in a single json file
 
-with open(args.config_file, "r") as f:
-    config = yaml.load(f, Loader=yaml.FullLoader)
+    Parameters
+    ----------
+    video_metrics : list[Path]
+        List of paths to the video metrics json files
+    config : dict
+        Configuration dictionary
 
-config = cfg_to_arguments(config)
+    Returns
+    -------
+    None
+        Saves the aggregated metrics in a json file at a designated location
 
+    """
 
-# compute per video assessment
-video_scores_list = sorted(list(Path(args.results_path).glob("*.csv")))
-if args.update:
-    for video_score in video_scores_list[:]:
-        try:
-            print(f"Processing {video_score}")
-            per_video_assessment(video_score, top_k=config.infe_top_k, config=config)
-        except:
-            print(f"Error processing {video_score}")
-            continue
-else:
-    print(f"Skipping video assessment, update set to {args.update}")
+    # Current metrics dictionary contains:
+    # - score_class
+    #   - precision
+    #   - recall
+    #   - f1
+    # - change_score
+    #   - precision
+    #   - recall
+    #   - f1
+    # - aggregated_score
+    #   - precision
+    #   - recall
+    #   - f1
 
-# aggregate results at same top_k rate
-if args.update and args.aggregate:
-    video_metrics_list = sorted(list(Path(args.results_path).glob("*.json")))
-    # remove _aggregated_metrics.json if present
-    video_metrics_list = [
-        x for x in video_metrics_list if "_aggregated_metrics.json" not in str(x)
-    ]
+    # 1 - create empty dictionary, with same structure as metrics
+    # also add a field as counter with a list of all filenames included in this aggregation
 
-    print(video_metrics_list)
-# if args.update:
-# aggregate_assessments(video_metrics, config=config)
+    # scores to aggregate:
+    scoagg = ["score_class", "change_score", "aggregated_score"]
 
-# aggregate_assessment
-# Read score file
+    # init empty dictionaries
+    agg_metrics = {}
+    agg_metrics["video_list"] = []
+    agg_metrics["top_k_frames"] = []
+    for i, single_video_metrics in enumerate(video_metrics_list):
+        print(
+            f"Processing of {single_video_metrics}, {i+1} out of {len(video_metrics_list)}"
+        )
+        # read json file
+        with open(single_video_metrics, "r") as f:
+            single_video_metrics = json.load(f)
 
-# def aggregate_assessments(video_metrics, config):
-#     """
-#     This function aggregates the results of the per-video assessment into a single json file
-#     - Reads the metrics json files for each video
-#     - Aggregates the results for each K
-#     - Saves the results in a single json file
+        # check if first iteration, if so, init empty arrays
+        if i == 0:
+            agg_metrics["top_k"] = single_video_metrics["top_k"]
+            agg_metrics["source_folder"] = single_video_metrics["source_folder"]
+            temp_scores = {}
+            for score_name in scoagg:  # init empty arrays for storing scores
+                temp_scores[score_name] = {}
+                temp_scores[score_name]["precision"] = np.zeros(
+                    (len(video_metrics_list), len(agg_metrics["top_k"]))
+                )
+                temp_scores[score_name]["recall"] = np.zeros(
+                    (len(video_metrics_list), len(agg_metrics["top_k"]))
+                )
+                temp_scores[score_name]["f1"] = np.zeros(
+                    (len(video_metrics_list), len(agg_metrics["top_k"]))
+                )
+        else:
+            # check for consistency if results do come from same source (roughly speaking...)
+            assert len(agg_metrics["top_k"]) == len(
+                single_video_metrics["top_k"]
+            ), f"top_k_frames are not consistent across videos: {agg_metrics['top_k']} vs {single_video_metrics['top_k']}"
+            assert (
+                agg_metrics["source_folder"] == single_video_metrics["source_folder"]
+            ), "source_folder is not consistent across videos"
 
-#     Parameters
-#     ----------
-#     video_metrics : list[Path]
-#         List of paths to the video metrics json files
-#     config : dict
-#         Configuration dictionary
+        # add video name to list
+        agg_metrics["top_k_frames"].append(single_video_metrics["top_k_frames"])
+        agg_metrics["video_list"].append(
+            single_video_metrics["video_name"]
+        )  # to be used as counter implicitly
 
-#     Returns
-#     -------
-#     None
-#         Saves the aggregated metrics in a json file at a designated location
+        # loop over scores to aggregate
+        for score_name in scoagg:
+            # update means
+            temp_scores[score_name]["precision"][i, :] = np.asarray(
+                single_video_metrics[score_name]["precision"]
+            )[np.newaxis, :]
+            temp_scores[score_name]["recall"][i, :] = np.asarray(
+                single_video_metrics[score_name]["recall"]
+            )[np.newaxis, :]
+            temp_scores[score_name]["f1"][i, :] = np.asarray(
+                single_video_metrics[score_name]["f1"]
+            )[np.newaxis, :]
 
-#     """
+    # check if all has been processed as len(agg_metrics["video_list"]) == len(video_metrics)
+    assert len(agg_metrics["video_list"]) == i + 1, "Not all videos have been processed"
 
-# Current metrics dictionary contains:
-# - score_class
-#   - precision
-#   - recall
-#   - f1
-# - change_score
-#   - precision
-#   - recall
-#   - f1
-# - aggregated_score
-#   - precision
-#   - recall
-#   - f1
-
-# 1 - create empty dictionary, with same structure as metrics
-# also add a field as counter with a list of all filenames included in this aggregation
-
-# scores to aggregate:
-scoagg = ["score_class", "change_score", "aggregated_score"]
-
-# init empty dictionaries
-agg_metrics = {}
-agg_metrics["video_list"] = []
-agg_metrics["top_k_frames"] = []
-for i, single_video_metrics in enumerate(video_metrics_list):
-    print(
-        f"Processing of {single_video_metrics}, {i+1} out of {len(video_metrics_list)}"
-    )
-    # read json file
-    with open(single_video_metrics, "r") as f:
-        single_video_metrics = json.load(f)
-
-    # check if first iteration, if so, init empty arrays
-    if i == 0:
-        agg_metrics["top_k"] = single_video_metrics["top_k"]
-        agg_metrics["source_folder"] = single_video_metrics["source_folder"]
-        temp_scores = {}
-        for score_name in scoagg:  # init empty arrays for storing scores
-            temp_scores[score_name] = {}
-            temp_scores[score_name]["precision"] = np.zeros(
-                (len(video_metrics_list), len(agg_metrics["top_k"]))
-            )
-            temp_scores[score_name]["recall"] = np.zeros(
-                (len(video_metrics_list), len(agg_metrics["top_k"]))
-            )
-            temp_scores[score_name]["f1"] = np.zeros(
-                (len(video_metrics_list), len(agg_metrics["top_k"]))
-            )
-    else:
-        # check for consistency if results do come from same source (roughly speaking...)
-        assert len(agg_metrics["top_k"]) == len(
-            single_video_metrics["top_k"]
-        ), f"top_k_frames are not consistent across videos: {agg_metrics['top_k']} vs {single_video_metrics['top_k']}"
-        assert (
-            agg_metrics["source_folder"] == single_video_metrics["source_folder"]
-        ), "source_folder is not consistent across videos"
-
-    # add video name to list
-    agg_metrics["top_k_frames"].append(single_video_metrics["top_k_frames"])
-    agg_metrics["video_list"].append(
-        single_video_metrics["video_name"]
-    )  # to be used as counter implicitly
-
-    # loop over scores to aggregate
+    # compute means and stds into final dictionary
     for score_name in scoagg:
-        # update means
-        temp_scores[score_name]["precision"][i, :] = np.asarray(
-            single_video_metrics[score_name]["precision"]
-        )[np.newaxis, :]
-        temp_scores[score_name]["recall"][i, :] = np.asarray(
-            single_video_metrics[score_name]["recall"]
-        )[np.newaxis, :]
-        temp_scores[score_name]["f1"][i, :] = np.asarray(
-            single_video_metrics[score_name]["f1"]
-        )[np.newaxis, :]
+        agg_metrics[score_name] = {}
+        agg_metrics[score_name]["precision"] = {}
+        agg_metrics[score_name]["precision"]["mean"] = np.mean(
+            temp_scores[score_name]["precision"], axis=0
+        ).tolist()
+        agg_metrics[score_name]["precision"]["std"] = np.std(
+            temp_scores[score_name]["precision"], axis=0
+        ).tolist()
+        agg_metrics[score_name]["recall"] = {}
+        agg_metrics[score_name]["recall"]["mean"] = np.mean(
+            temp_scores[score_name]["recall"], axis=0
+        ).tolist()
+        agg_metrics[score_name]["recall"]["std"] = np.std(
+            temp_scores[score_name]["recall"], axis=0
+        ).tolist()
+        agg_metrics[score_name]["f1"] = {}
+        agg_metrics[score_name]["f1"]["mean"] = np.mean(
+            temp_scores[score_name]["f1"], axis=0
+        ).tolist()
+        agg_metrics[score_name]["f1"]["std"] = np.std(
+            temp_scores[score_name]["f1"], axis=0
+        ).tolist()
 
-# check if all has been processed as len(agg_metrics["video_list"]) == len(video_metrics)
-assert len(agg_metrics["video_list"]) == i + 1, "Not all videos have been processed"
+    save_path = Path(args.results_path) / "_aggregated_metrics.json"
+    with open(save_path, "w") as f:
+        json.dump(agg_metrics, f, indent=4)
 
-# compute means and stds into final dictionary
-for score_name in scoagg:
-    agg_metrics[score_name] = {}
-    agg_metrics[score_name]["precision"] = {}
-    agg_metrics[score_name]["precision"]["mean"] = np.mean(
-        temp_scores[score_name]["precision"], axis=0
-    ).tolist()
-    agg_metrics[score_name]["precision"]["std"] = np.std(
-        temp_scores[score_name]["precision"], axis=0
-    ).tolist()
-    agg_metrics[score_name]["recall"] = {}
-    agg_metrics[score_name]["recall"]["mean"] = np.mean(
-        temp_scores[score_name]["recall"], axis=0
-    ).tolist()
-    agg_metrics[score_name]["recall"]["std"] = np.std(
-        temp_scores[score_name]["recall"], axis=0
-    ).tolist()
-    agg_metrics[score_name]["f1"] = {}
-    agg_metrics[score_name]["f1"]["mean"] = np.mean(
-        temp_scores[score_name]["f1"], axis=0
-    ).tolist()
-    agg_metrics[score_name]["f1"]["std"] = np.std(
-        temp_scores[score_name]["f1"], axis=0
-    ).tolist()
+# %% 
+if __name__ == "__main__":
+    args = argparse.ArgumentParser(description="Hummingbird inference script")
+    args.add_argument(
+        "--results_path",
+        type=Path,
+        help="Path to the video_scores sub-folder, specific to a model. This folder contains CSV files with the raw pipeline scores for each video",
+    )
+    args.add_argument(
+        "--config_file",
+        type=Path,
+        help="Path to the configuration file",
+    )
+    args.add_argument(
+        "--update",
+        action="store_true",
+        help="If set, will recompute the metrics for all videos in the folder",
+    )
+    args.add_argument(
+        "--aggregate",
+        action="store_true",
+        help="If set, will aggregate the metrics for all videos in the folder",
+    )
+    args = args.parse_args()
+    # args = {}
+    # args["results_path"] = Path(
+    #     "/data/shared/hummingbird-classifier/outputs/video_scores/densenet161-v1"
+    # )
+    # args["config_file"] = Path(
+    #     "/data/shared/hummingbird-classifier/configs/configuration_hummingbirds.yaml"
+    # )
+    # args["update"] = True
+    # args["aggregate"] = True
+    # args = cfg_to_arguments(args)
 
-save_path = Path(args.results_path) / "_aggregated_metrics.json"
-with open(save_path, "w") as f:
-    json.dump(agg_metrics, f, indent=4)
+    with open(args.config_file, "r") as f:
+        config = yaml.load(f, Loader=yaml.FullLoader)
 
-# %%
+    config = cfg_to_arguments(config)
+
+
+    # compute per video assessment
+    video_scores_list = sorted(list(Path(args.results_path).glob("*.csv")))
+    if args.update:
+        for video_score in video_scores_list[:]:
+            try:
+                print(f"Processing {video_score}")
+                per_video_assessment(video_score, top_k=config.infe_top_k, config=config)
+            except:
+                print(f"Error processing {video_score}")
+                continue
+    else:
+        print(f"Skipping video assessment, update set to {args.update}")
+
+    # aggregate results at same top_k rate
+    if args.update and args.aggregate:
+        video_metrics_list = sorted(list(Path(args.results_path).glob("*.json")))
+        # remove _aggregated_metrics.json if present
+        video_metrics_list = [
+            x for x in video_metrics_list if "_aggregated_metrics.json" not in str(x)
+        ]
+        if args.update:
+        
+        aggregate_assessments(video_metrics_list, config=config)
+
+        # aggregate_assessment
+        # Read score file
