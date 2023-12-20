@@ -62,20 +62,6 @@ def recall_at_k(predictions, K):
     return sum(predictions[:K]) / sum(predictions)
 
 
-def aggregate_assessment():
-    """
-
-    Parameters
-    ----------
-
-    Returns
-    -------
-
-    """
-
-    return None
-
-
 # %%
 def per_video_assessment(score_file, top_k, config):
     """
@@ -167,6 +153,7 @@ def per_video_assessment(score_file, top_k, config):
 
 # %%
 
+
 def aggregate_assessments(video_metrics, config):
     """
     This function aggregates the results of the per-video assessment into a single json file
@@ -187,23 +174,6 @@ def aggregate_assessments(video_metrics, config):
         Saves the aggregated metrics in a json file at a designated location
 
     """
-
-    # Current metrics dictionary contains:
-    # - score_class
-    #   - precision
-    #   - recall
-    #   - f1
-    # - change_score
-    #   - precision
-    #   - recall
-    #   - f1
-    # - aggregated_score
-    #   - precision
-    #   - recall
-    #   - f1
-
-    # 1 - create empty dictionary, with same structure as metrics
-    # also add a field as counter with a list of all filenames included in this aggregation
 
     # scores to aggregate:
     scoagg = ["score_class", "change_score", "aggregated_score"]
@@ -296,7 +266,72 @@ def aggregate_assessments(video_metrics, config):
     with open(save_path, "w") as f:
         json.dump(agg_metrics, f, indent=4)
 
-# %% 
+
+# %%
+def plot_aggregated_metrics(results_path, config):
+    """
+    This function plots the aggregated metrics for a given model
+    - Reads the aggregated metrics json file
+    - Plots the results for each K
+
+    Parameters
+    ----------
+    results_path : Path
+        Path to the aggregated metrics json file
+
+    Returns
+    -------
+    None
+        Saves the aggregated metrics in a json file at a designated location
+
+    """
+
+    scores_to_test = ["score_class", "change_score", "aggregated_score"]
+    markers = ["o", "x", "s"]
+    cols = ["r", "b", "g"]
+    ltype = ["-", "--", "-."]
+
+    # read json file
+    with open(Path(results_path) / "_aggregated_metrics.json", "r") as f:
+        metrics = json.load(f)
+
+    i = 0
+    plt.figure()
+
+    for score_name in scores_to_test:
+        pr_na = score_name.replace("_", " ").capitalize()
+
+        plt.plot(
+            metrics[score_name]["precision"],
+            label=f"{pr_na} p",
+            marker=markers[i],
+            c=cols[i],
+            ls=ltype[0],
+        )
+        plt.plot(
+            metrics[score_name]["recall"],
+            label=f"{pr_na} r",
+            marker=markers[i],
+            c=cols[i],
+            ls=ltype[1],
+        )
+        plt.plot(
+            metrics[score_name]["f1"],
+            label=f"{pr_na} f1",
+            marker=markers[i],
+            c=cols[i],
+            ls=ltype[2],
+        )
+        plt.legend(handlelength=3)
+        plt.grid()
+        plt.xticks(range(len(config.top_k)), config.top_k, rotation=45)
+        plt.xlabel("top K")
+        plt.ylabel("metric")
+        plt.title(f"Summary metrics")
+        i += 1
+
+
+# %%
 if __name__ == "__main__":
     args = argparse.ArgumentParser(description="Hummingbird inference script")
     args.add_argument(
@@ -317,7 +352,12 @@ if __name__ == "__main__":
     args.add_argument(
         "--aggregate",
         action="store_true",
-        help="If set, will aggregate the metrics for all videos in the folder",
+        help="If set, will aggregate the metrics for all videos in the folder (but only if --aggregate is set)",
+    )
+    args.add_argument(
+        "--make_plots",
+        action="store_true",
+        help="If set, will make plots for the summary assessment",
     )
     args = args.parse_args()
     # args = {}
@@ -336,14 +376,15 @@ if __name__ == "__main__":
 
     config = cfg_to_arguments(config)
 
-
     # compute per video assessment
     video_scores_list = sorted(list(Path(args.results_path).glob("*.csv")))
     if args.update:
         for video_score in video_scores_list[:]:
             try:
                 print(f"Processing {video_score}")
-                per_video_assessment(video_score, top_k=config.infe_top_k, config=config)
+                per_video_assessment(
+                    video_score, top_k=config.infe_top_k, config=config
+                )
             except:
                 print(f"Error processing {video_score}")
                 continue
@@ -358,8 +399,7 @@ if __name__ == "__main__":
             x for x in video_metrics_list if "_aggregated_metrics.json" not in str(x)
         ]
         if args.update:
-        
-        aggregate_assessments(video_metrics_list, config=config)
+            aggregate_assessments(video_metrics_list, config=config)
 
-        # aggregate_assessment
-        # Read score file
+    if args.make_plots and args.aggregate:
+        plot_aggregated_metrics(args.results_path)
