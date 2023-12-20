@@ -2,10 +2,6 @@
 =================================
 Here we detail the main classes and functions in ``hummingbird-classifier``. 
 
-
-Classes
--------
-
 :mod:`grad_cam`
 ------------------------------------
 .. automodule:: src.grad-cam-pytorch-light.grad_cam
