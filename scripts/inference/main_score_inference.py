@@ -78,7 +78,9 @@ def per_video_frame_inference(video_folder, args, config):
     annot = annot.replace({"Positive": 1.0, "Negative": 0.0})
     # annot.Truth = annot.Truth.apply(lambda x: x == "Positive")
     annot.Frame -= 1  # count from 0
+    annot = annot.drop_duplicates()
     annot = annot.set_index("Frame")
+    # annot = annot.drop_duplicates()
 
     args.output_file_dataframe = args.output_file_folder / f"{video_name}.csv"
 

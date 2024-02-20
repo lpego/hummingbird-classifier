@@ -12,7 +12,7 @@ from pathlib import Path
 
 from matplotlib import pyplot as plt
 
-sys.path.append("../../")
+sys.path.append(".")
 
 from src.utils import (
     cfg_to_arguments,
@@ -22,44 +22,44 @@ from src.utils import (
 
 
 # %%
-def precision_at_k(predictions, K):
+def precision(predictions, gt):
     """
-    Computes precision at K for a given list of predictions
+    Computes precision given a list of predictions
 
     Parameters
     ----------
     predictions : list
         List of predictions, 1 if positive, 0 if negative
-    K : int
-        Number of top predictions to consider
+    gt : list
+        List of ground truth, 1 if positive, 0 if negative
 
     Returns
     -------
     float
-        Precision at K
+        Precision
 
     """
-    return sum(predictions[:K]) / K
+    return sum(predictions == gt) / sum(predictions)
 
 
-def recall_at_k(predictions, K):
+def recall(predictions, gt):
     """
-    Computes recall at K for a given list of predictions
+    Computes recall given a list of predictions
 
     Parameters
     ----------
     predictions : list
         List of predictions, 1 if positive, 0 if negative
-    K : int
-        Number of top predictions to consider
+    gt : list
+        List of ground truth, 1 if positive, 0 if negative
 
     Returns
     -------
     float
-        Recall at K
+        Recall
 
     """
-    return sum(predictions[:K]) / sum(predictions)
+    return sum(predictions == gt) / sum(gt[gt > -1]) if sum(gt[gt > -1]) > 0 else 0
 
 
 # %%
@@ -90,11 +90,22 @@ def per_video_assessment(score_file, top_k, config):
         Saves the scores in a json file at a designated location
 
     """
-
+    print(score_file)
     scores = pd.read_csv(score_file)
+    print(scores.head())
     # Calculate score as linear combination of the three scores:
     # -classification, classificaiton dynamic, class-agnostic change detection
     # score_class, diff_score, change_score
+
+    # sigmoid for change score
+    # sigmoid = lambda x: 1 / (1 + np.exp(-x))
+    # scores["change_score"] = scores["change_score"].apply(sigmoid)
+
+    # min-max normalisation
+    scores["score_class"] = (scores["score_class"] - scores["score_class"].min()) / (
+        1e-6 + scores["score_class"].max() - scores["score_class"].min()
+    )
+
     scores["aggregated_score"] = (
         config.infe_weight_classification_score * scores["score_class"]
         + config.infe_weight_classification_dynamic * scores["diff_score"]
@@ -128,19 +139,27 @@ def per_video_assessment(score_file, top_k, config):
         metrics[score_name]["recall"] = []
         metrics[score_name]["f1"] = []
         for K in top_k_frames:
-            # Assume first K retrieved frames are positives
-            metrics[score_name]["precision"].append(
-                precision_at_k(score.loc[score["ground_truth"] >= 0, score_name], K)
-            )
-            metrics[score_name]["recall"].append(
-                recall_at_k(score.loc[scores["ground_truth"] >= 0, score_name], K)
-            )
+            # Assume first K retrieved frames are positives after sorting:
+            preds = np.ones((K,))
+            # print(len(preds), len(score["ground_truth"].iloc[:K]))
+            P_at_K = precision(preds, score["ground_truth"].iloc[:K].values)
+            R_at_K = recall(preds, score["ground_truth"].iloc[:K].values)
+
+            # print(preds, score["ground_truth"].iloc[:K])
+            # print(len(preds), len(score["ground_truth"].iloc[:K]))
+            # print(f"{pr_na} Pr@{K} = {P_at_K:.3f}")
+            # print(f"{pr_na} Re@{K} = {R_at_K:.3f}")
+            # exit()
+
+            metrics[score_name]["precision"].append(P_at_K)
+            metrics[score_name]["recall"].append(R_at_K)
             metrics[score_name]["f1"].append(
                 2
                 * metrics[score_name]["precision"][-1]
                 * metrics[score_name]["recall"][-1]
                 / (
-                    metrics[score_name]["precision"][-1]
+                    1e-6
+                    + metrics[score_name]["precision"][-1]
                     + metrics[score_name]["recall"][-1]
                 )
             )
@@ -152,8 +171,6 @@ def per_video_assessment(score_file, top_k, config):
 
 
 # %%
-
-
 def aggregate_assessments(video_metrics, config):
     """
     This function aggregates the results of the per-video assessment into a single json file
@@ -183,9 +200,6 @@ def aggregate_assessments(video_metrics, config):
     agg_metrics["video_list"] = []
     agg_metrics["top_k_frames"] = []
     for i, single_video_metrics in enumerate(video_metrics_list):
-        print(
-            f"Processing of {single_video_metrics}, {i+1} out of {len(video_metrics_list)}"
-        )
         # read json file
         with open(single_video_metrics, "r") as f:
             single_video_metrics = json.load(f)
@@ -247,6 +261,9 @@ def aggregate_assessments(video_metrics, config):
         agg_metrics[score_name]["precision"]["std"] = np.std(
             temp_scores[score_name]["precision"], axis=0
         ).tolist()
+        agg_metrics[score_name]["precision"]["all"] = temp_scores[score_name][
+            "precision"
+        ].tolist()
         agg_metrics[score_name]["recall"] = {}
         agg_metrics[score_name]["recall"]["mean"] = np.mean(
             temp_scores[score_name]["recall"], axis=0
@@ -254,6 +271,9 @@ def aggregate_assessments(video_metrics, config):
         agg_metrics[score_name]["recall"]["std"] = np.std(
             temp_scores[score_name]["recall"], axis=0
         ).tolist()
+        agg_metrics[score_name]["recall"]["all"] = temp_scores[score_name][
+            "recall"
+        ].tolist()
         agg_metrics[score_name]["f1"] = {}
         agg_metrics[score_name]["f1"]["mean"] = np.mean(
             temp_scores[score_name]["f1"], axis=0
@@ -261,8 +281,9 @@ def aggregate_assessments(video_metrics, config):
         agg_metrics[score_name]["f1"]["std"] = np.std(
             temp_scores[score_name]["f1"], axis=0
         ).tolist()
-
+        agg_metrics[score_name]["f1"]["all"] = temp_scores[score_name]["f1"].tolist()
     save_path = Path(args.results_path) / "_aggregated_metrics.json"
+
     with open(save_path, "w") as f:
         json.dump(agg_metrics, f, indent=4)
 
@@ -302,33 +323,35 @@ def plot_aggregated_metrics(results_path, config):
         pr_na = score_name.replace("_", " ").capitalize()
 
         plt.plot(
-            metrics[score_name]["precision"],
-            label=f"{pr_na} p",
+            metrics[score_name]["precision"]["mean"],
+            label=f"{pr_na} Pr",
             marker=markers[i],
             c=cols[i],
             ls=ltype[0],
         )
         plt.plot(
-            metrics[score_name]["recall"],
-            label=f"{pr_na} r",
+            metrics[score_name]["recall"]["mean"],
+            label=f"{pr_na} Re",
             marker=markers[i],
             c=cols[i],
             ls=ltype[1],
         )
         plt.plot(
-            metrics[score_name]["f1"],
-            label=f"{pr_na} f1",
+            metrics[score_name]["f1"]["mean"],
+            label=f"{pr_na} F1",
             marker=markers[i],
             c=cols[i],
             ls=ltype[2],
         )
         plt.legend(handlelength=3)
         plt.grid()
-        plt.xticks(range(len(config.top_k)), config.top_k, rotation=45)
+        plt.xticks(range(len(metrics["top_k"])), metrics["top_k"], rotation=45)
         plt.xlabel("top K")
         plt.ylabel("metric")
         plt.title(f"Summary metrics")
         i += 1
+    plt.tight_layout()
+    plt.savefig(Path(results_path) / "_aggregated_metrics_plot.pdf")
 
 
 # %%
@@ -380,14 +403,12 @@ if __name__ == "__main__":
     video_scores_list = sorted(list(Path(args.results_path).glob("*.csv")))
     if args.update:
         for video_score in video_scores_list[:]:
-            try:
-                print(f"Processing {video_score}")
-                per_video_assessment(
-                    video_score, top_k=config.infe_top_k, config=config
-                )
-            except:
-                print(f"Error processing {video_score}")
-                continue
+            # try:
+            # print(f"Processing {video_score}")
+            per_video_assessment(video_score, top_k=config.infe_top_k, config=config)
+            # except:
+            # print(f"Error processing {video_score}")
+            # continue
     else:
         print(f"Skipping video assessment, update set to {args.update}")
 
@@ -402,4 +423,4 @@ if __name__ == "__main__":
             aggregate_assessments(video_metrics_list, config=config)
 
     if args.make_plots and args.aggregate:
-        plot_aggregated_metrics(args.results_path)
+        plot_aggregated_metrics(args.results_path, config=config)

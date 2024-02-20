@@ -96,7 +96,7 @@ def read_pretrained_model(architecture, n_class):
         )
 
         for param in model.parameters():
-            param.requires_grad = False
+            param.requires_grad = True
 
         for param in model.classifier[1].parameters():
             param.requires_grad = True

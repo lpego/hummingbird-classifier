@@ -226,45 +226,21 @@ class HummingbirdModel(pl.LightningModule):
             weight_decay=self.weight_decay,
         )
 
-        # scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
-        #     optimizer,
-        #     mode="min",
-        #     patience=self.step_size_decay,
-        #     cooldown=0,
-        #     factor=0.1,
-        # )
+        scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
+            optimizer,
+            mode="min",
+            patience=self.step_size_decay,
+            cooldown=0,
+            factor=0.1,
+        )
 
         return {
             "optimizer": optimizer,
             "lr_scheduler": {
-                "scheduler": torch.optim.lr_scheduler.ReduceLROnPlateau(
-                    optimizer,
-                    mode="min",
-                    patience=self.step_size_decay,
-                    cooldown=0,
-                    factor=0.1,
-                ),
+                "scheduler": scheduler,
                 "monitor": "val_loss",
-                "frequency": 1,
             },
         }
-
-    # figure out how Plateau scheduler could work when val fits are too good.
-    # def configure_optimizers(self):
-    #     "optimiser config plus lr scheduler callback"
-    #     optimizer = torch.optim.AdamW(
-    #         self.model.parameters(),
-    #         lr=self.learning_rate,
-    #         weight_decay=self.weight_decay,
-    #     )
-    #     return {
-    #         "optimizer": optimizer,
-    #         "lr_scheduler": {
-    #             "scheduler": torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode="max", patience=1, cooldown=1, factor=0.1),
-    #             "monitor": "val_acc",
-    #             "frequency": 1
-    #         },
-    #     }
 
     ######################
     # DATA RELATED HOOKS #

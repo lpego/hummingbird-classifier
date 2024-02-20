@@ -19,6 +19,44 @@ from tqdm import tqdm
 
 
 # %%
+def just_im_difference(impair, pars):
+    ims = pars["imsize"]
+
+    im_0 = Image.open(impair[0]).convert("RGB")
+    im_1 = Image.open(impair[1]).convert("RGB")
+    im_2 = Image.open(impair[2]).convert("RGB")
+
+    (l, t, r, b) = pars["imcrop"]
+    if np.any(pars["imcrop"]):
+        (l, t, r, b) = pars["imcrop"]
+        im_0 = im_0.crop((l, t, r, b))
+        im_1 = im_1.crop((l, t, r, b))
+        im_2 = im_2.crop((l, t, r, b))
+
+    im_0 = im_0.resize((ims, ims), Image.BILINEAR)
+    im_1 = im_1.resize((ims, ims), Image.BILINEAR)
+    im_2 = im_2.resize((ims, ims), Image.BILINEAR)
+
+    if pars["do_filt"]:
+        im_0 = im_0.filter(ImageFilter.GaussianBlur(radius=pars["filt_rad"]))
+        im_1 = im_1.filter(ImageFilter.GaussianBlur(radius=pars["filt_rad"]))
+        im_2 = im_2.filter(ImageFilter.GaussianBlur(radius=pars["filt_rad"]))
+
+    im_0 = np.array(im_0) / 255.0
+    im_1 = np.array(im_1) / 255.0
+    im_2 = np.array(im_2) / 255.0
+
+    im_0 = exposure.match_histograms(im_0, im_1, channel_axis=2)
+    im_2 = exposure.match_histograms(im_2, im_1, channel_axis=2)
+
+    d1 = im_1 - im_0
+    d2 = im_2 - im_1
+    dh = (1 + d1 + d2) / 2
+    dm = np.linalg.norm(dh, axis=2) / pars["cnorm"]
+    return dh, dm
+
+
+# %%
 def magnitude_score(impair, pars):
     ims = pars["imsize"]
     try:
