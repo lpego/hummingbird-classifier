@@ -12,47 +12,46 @@ st.title ('BioDetect')
 # select from txt array
 # write to csv/json (folder path, treshold value, model name)
 
+if 'field1' not in st.session_state:
+   st.session_state.field1 = False
+if 'reset' not in st.session_state:
+   st.session_state.reset = False
+
+def clear():
+   st.session_state.field1=False
+   st.session_state.reset=False
+
+
 def select_folder():
    root = tk.Tk()
-   root.withdraw()
    folder_path = filedialog.askdirectory(master=root)
    root.destroy()
    return folder_path
 
 def select_folder2():
    root = tk.Tk()
-   root.withdraw()
    folder_path2 = filedialog.askdirectory(master=root)
    root.destroy()
    return folder_path2
 
 def select_folder3():
    root = tk.Tk()
-   root.withdraw()
    folder_path3 = filedialog.askdirectory(master=root)
    root.destroy()
    return folder_path3
 
 def select_folder4():
    root = tk.Tk()
-   root.withdraw()
    folder_path4 = filedialog.askdirectory(master=root)
    root.destroy()
    return folder_path4
 
 def select_folder5():
    root = tk.Tk()
-   root.withdraw()
    folder_path5 = filedialog.askdirectory(master=root)
    root.destroy()
    return folder_path5
 
-def select_folder6():
-   root = tk.Tk()
-   root.withdraw()
-   folder_path6 = filedialog.askdirectory(master=root)
-   root.destroy()
-   return folder_path6
 
 # ### Template
 # selected_folder_path = st.session_state.get("folder_path", None)
@@ -70,9 +69,13 @@ folder_select_button1 = st.button("Select path to the model checkpoint")
 if folder_select_button1:
   results_path = select_folder()
   st.session_state.folder_path = results_path
+  st.session_state.field1 = True
 
-if results_path:
+if results_path and st.session_state.field1:
    st.write("Selected folder path:", results_path)
+
+if folder_select_button1:
+   st.session_state.field1 = True
 
 config_file = st.session_state.get("folder_path2", None)
 folder_select_button2 = st.button("Select path to video subfolder")
@@ -82,6 +85,7 @@ if folder_select_button2:
 
 if config_file:
    st.write("Selected folder path:", config_file)
+
 
 update = st.session_state.get("folder_path3", None)
 folder_select_button3 = st.button("Select folder of the video frames annotation file")
@@ -109,7 +113,10 @@ if folder_select_button5:
   st.session_state.folder_path5 = make_plots
 
 if make_plots:
-   st.write("Selected folder path:", make_plots)
+  make_plots_text = st.write("Selected folder path:", make_plots)
+
+
+
 
 # Choose model
 option = st.selectbox(
@@ -123,13 +130,18 @@ threshold = st.slider('Enter threshold in %', 0,100)/100
 # Finish button
 loadingButton = st.button('Finish')
 
+# Clear Button
+clearbtn = st.button('Clear', on_click=clear)
+
+if clearbtn:
+   st.session_state.folder_path = ''
+
 def checkEmpty():
    results_var=''
    config_main_var=''
    update_main_var=''
    aggregate_var=''
    plots_var=''
-
 
    try:
       results_var = st.session_state.folder_path
