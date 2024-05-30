@@ -1,0 +1,1 @@
+The Streamlit Graphical User Interface has been written by Aron Eggenberger <aron.eggenberger@wsl.ch> as part of the Civil Service secondment at WSL. 
