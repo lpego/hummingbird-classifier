@@ -12,6 +12,8 @@ docs/build/
 *.JPEG
 *.avi
 *.AVI
+*.csv
+*.CSV
 
 ### Emacs ###
 # -*- mode: gitignore; -*-
