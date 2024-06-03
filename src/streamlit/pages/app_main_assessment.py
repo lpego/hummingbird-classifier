@@ -22,46 +22,46 @@ def select_folder():
 
 def clear():
     st.session_state.folder_path=None
-    st.session_state.folder_path1=None
-    st.session_state.folder_path2=None
+    st.session_state.model_path=None
+    st.session_state.config_file=None
     st.session_state.folder_path3=None
-    st.session_state.folder_path4=None
-    st.session_state.folder_path5=None
+    st.session_state.results_path=None
+    st.session_state.config_file=None
     st.session_state.threshold=0
     st.session_state.model_select=""
     
 def checkEmpty():   
     results_var=''
-    config_main_var=''
-    update_main_var=''
-    aggregate_var=''
-    plots_var=''
+    config_var=''
+    # update_var=''
+    # aggregate_var=''
+    # plots_var= ''
     try:
-        results_var = st.session_state.folder_path1
+        results_var = st.session_state.results_path
     except:
-        st.write('**:red[Please select path to the model checkpoint]**')
+        st.write('**:red[Please select folder where results / scores are stored]**')
     try:
-        config_main_var = st.session_state.folder_path2
+        config_var = st.session_state.config_file
     except:
-        st.write('**:red[Please select path to video subfolder]**')
-    try:
-        update_main_var = st.session_state.folder_path3
-    except:
-        st.write('**:red[Please select folder of the video frames annotation file]**')
-    try:
-        aggregate_var = st.session_state.folder_path4
-    except:
-        st.write('**:red[Please select folder where results / score CSV are stored]**')
-    try:
-        plots_var = st.session_state.folder_path5
-    except:
-        st.write('**:red[Please select path to the config file]**')
+        st.write('**:red[Please select path to the configuration file]**')
+    # try:
+    #     update_var = st.session_state.update
+    # except:
+    #     st.write('**:red[Please select whther to update metrics for all videos]**')
+    # try:
+    #     aggregate_var = st.session_state.aggregate
+    # except:
+    #     st.write('**:red[Please select whether to aggregate metrics per folder]**')
+    # try:
+    #     plots_var = st.session_state.plots
+    # except:
+    #     st.write('**:red[Please select whether to plot metrics]**')
     if (
         results_var != ''
-        and config_main_var != ''
-        and update_main_var != ''
-        and aggregate_var != ''
-        and plots_var != ''
+        and config_var != ''
+        # and update_var != ''
+        # and aggregate_var != ''
+        # and plots_var != ''
     ):
         return True
     else:
@@ -77,54 +77,26 @@ streamlit_log = {"app_main_assessment": {"start_time": datetime.datetime.now()}}
 # if folder_select_button:
 #    selected_folder_path = select_folder()
 #    st.session_state.folder_path = selected_folder_path
-
 # if selected_folder_path:
 #    st.write("Selected folder path:", selected_folder_path)
 
-results_path = st.session_state.get("folder_path1")
-folder_select_button1 = st.button("Select path to the model checkpoint")
-if folder_select_button1:
-    results_path = select_folder()
-    st.session_state.folder_path1 = results_path
-if results_path and st.session_state.folder_path1:
-    st.write("Selected folder path:", results_path)
-    streamlit_log["app_main_assessment"]["results_path"] = (results_path)
-
-config_file = st.session_state.get("folder_path2", None)
-folder_select_button2 = st.button("Select path to video subfolder")
-if folder_select_button2:
-    config_file = select_folder()
-    st.session_state.folder_path2 = config_file
-if config_file:
-    st.write("Selected folder path:", config_file)
-    streamlit_log["app_main_assessment"]["config_file"] = config_file
-
-update = st.session_state.get("folder_path3", None)
-folder_select_button3 = st.button("Select folder of the video frames annotation file")
-if folder_select_button3:
-    update = select_folder()
-    st.session_state.folder_path3 = update
-if update:
-    st.write("Selected folder path:", update)
-    streamlit_log["app_main_assessment"]["update"] = update
-
-aggregate = st.session_state.get("folder_path4", None)
+results_path = st.session_state.get("results_path", None)
 folder_select_button4 = st.button("Select folder where results / score CSV are stored")
 if folder_select_button4:
-    aggregate = select_folder()
-    st.session_state.folder_path4 = aggregate
-if aggregate:
-    st.write("Selected folder path:", aggregate)
-    streamlit_log["app_main_assessment"]["aggregate"] = aggregate
+    results_path = select_folder()
+    st.session_state.results_path = results_path
+if results_path:
+    st.write("Selected folder path:", results_path)
+    streamlit_log["app_main_assessment"]["results_path"] = results_path
 
-make_plots = st.session_state.get("folder_path5", None)
+config_file = st.session_state.get("config_file", None)
 folder_select_button5 = st.button("Select path to the config file")
 if folder_select_button5:
-    make_plots = select_folder()
-    st.session_state.folder_path5 = make_plots
-if make_plots:
-    make_plots_text = st.write("Selected folder path:", make_plots)
-    streamlit_log["app_main_assessment"]["make_plots"] = make_plots
+    config_file = select_folder()
+    st.session_state.config_file = config_file
+if config_file:
+    config_file_text = st.write("Selected folder path:", config_file)
+    streamlit_log["app_main_assessment"]["config_file"] = config_file
 
 ### Choose model
 option = st.selectbox(
@@ -134,6 +106,28 @@ option = st.selectbox(
 # st.write('You selected:', option)
 if option:
     streamlit_log["app_main_assessment"]["option"] = option
+
+###
+update = st.checkbox("Recompute all metrics for videos in the folder", 
+                     value=False, 
+                     key="update"
+                     )
+if update: 
+    streamlit_log["app_main_assessment"]["update"] = update
+
+aggregate = st.checkbox("Aggregate metrics for all videos in the folder", 
+                        value=False,
+                        key="aggregate"
+                        )
+if aggregate: 
+    streamlit_log["app_main_assessment"]["aggregate"] = aggregate
+    
+plots = st.checkbox("Plot metrics", 
+                    value=False,
+                    key="plots"
+                    )
+if plots: 
+    streamlit_log["app_main_assessment"]["plots"] = plots
 
 ### Choose threshold
 threshold = st.slider('Enter threshold in %', 
@@ -159,14 +153,7 @@ if loadingButton and checkEmpty():
     time.sleep(2)
     my_bar.empty()
 
-    # ### Write the CSV
-    # with open('streamlit_log.csv', 'a') as file:
-    #     # file.write(st.session_state.dirname + ', ')
-    #     # file.write(selected_folder_path + ', ')
-    #     file.write(option + ', ')
-    #     file.write(str(threshold) + ', ' + '\n')
-    # streamlit_log.to_csv('streamlit_log.csv', mode='a', #index=False, header=True
-                        #  )
+    # ### Write the YAML
     streamlit_log["app_main_assessment"]["end_time"] = datetime.datetime.now()
     with open('streamlit_log.yaml', 'a') as outfile:
         yaml.dump(streamlit_log, outfile, sort_keys=False)
@@ -178,3 +165,5 @@ elif loadingButton:
     
 ### Clear Button
 clearbtn = st.button('Clear', on_click=clear)
+
+### 🐛 KNOWN BUG: try...except blocks don't catch exceptions after clear button is pressed! 
