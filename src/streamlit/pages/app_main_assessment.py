@@ -1,8 +1,10 @@
 import os
-import time
+import time, datetime
 import tkinter as tk
 from tkinter import filedialog
 import streamlit as st
+import pandas as pd
+import yaml
 
 st.title ('BioDetect')
 # run the file: streamlit run app.py
@@ -27,9 +29,8 @@ def clear():
     st.session_state.folder_path5=None
     st.session_state.threshold=0
     st.session_state.model_select=""
-    # st.session_state.reset=False
     
-def checkEmpty():
+def checkEmpty():   
     results_var=''
     config_main_var=''
     update_main_var=''
@@ -65,7 +66,10 @@ def checkEmpty():
         return True
     else:
         return False
-    
+
+debug = True # set to False for regular operation
+streamlit_log = {"app_main_assessment": {"start_time": datetime.datetime.now()}}
+
 ### Actual variables to grab
 # # ### Template
 # selected_folder_path = st.session_state.get("folder_path", None)
@@ -84,6 +88,7 @@ if folder_select_button1:
     st.session_state.folder_path1 = results_path
 if results_path and st.session_state.folder_path1:
     st.write("Selected folder path:", results_path)
+    streamlit_log["app_main_assessment"]["results_path"] = (results_path)
 
 config_file = st.session_state.get("folder_path2", None)
 folder_select_button2 = st.button("Select path to video subfolder")
@@ -92,6 +97,7 @@ if folder_select_button2:
     st.session_state.folder_path2 = config_file
 if config_file:
     st.write("Selected folder path:", config_file)
+    streamlit_log["app_main_assessment"]["config_file"] = config_file
 
 update = st.session_state.get("folder_path3", None)
 folder_select_button3 = st.button("Select folder of the video frames annotation file")
@@ -100,6 +106,7 @@ if folder_select_button3:
     st.session_state.folder_path3 = update
 if update:
     st.write("Selected folder path:", update)
+    streamlit_log["app_main_assessment"]["update"] = update
 
 aggregate = st.session_state.get("folder_path4", None)
 folder_select_button4 = st.button("Select folder where results / score CSV are stored")
@@ -108,6 +115,7 @@ if folder_select_button4:
     st.session_state.folder_path4 = aggregate
 if aggregate:
     st.write("Selected folder path:", aggregate)
+    streamlit_log["app_main_assessment"]["aggregate"] = aggregate
 
 make_plots = st.session_state.get("folder_path5", None)
 folder_select_button5 = st.button("Select path to the config file")
@@ -116,6 +124,7 @@ if folder_select_button5:
     st.session_state.folder_path5 = make_plots
 if make_plots:
     make_plots_text = st.write("Selected folder path:", make_plots)
+    streamlit_log["app_main_assessment"]["make_plots"] = make_plots
 
 ### Choose model
 option = st.selectbox(
@@ -123,11 +132,19 @@ option = st.selectbox(
     ('','Model Alpha', 'Model Bravo', 'Model Charlie'), 
     key='model_select')
 # st.write('You selected:', option)
+if option:
+    streamlit_log["app_main_assessment"]["option"] = option
 
 ### Choose threshold
 threshold = st.slider('Enter threshold in %', 
                       0,100, 
                       key='threshold') / 100
+if threshold:
+    streamlit_log["app_main_assessment"]["threshold"] = threshold
+
+### Testing printouts
+if debug: 
+    st.write("DEBUGGING INFO:", streamlit_log)
 
 ### Run button
 loadingButton = st.button('Run')
@@ -142,13 +159,19 @@ if loadingButton and checkEmpty():
     time.sleep(2)
     my_bar.empty()
 
-    ### Write the CSV
-    with open('streamlit_log.csv', 'a') as file:
-        # file.write(st.session_state.dirname + ', ')
-        # file.write(selected_folder_path + ', ')
-        file.write(option + ', ')
-        file.write(str(threshold) + ', ' + '\n')   
-    st.write('Success, appending run parameters to "streamlit_log.csv"')
+    # ### Write the CSV
+    # with open('streamlit_log.csv', 'a') as file:
+    #     # file.write(st.session_state.dirname + ', ')
+    #     # file.write(selected_folder_path + ', ')
+    #     file.write(option + ', ')
+    #     file.write(str(threshold) + ', ' + '\n')
+    # streamlit_log.to_csv('streamlit_log.csv', mode='a', #index=False, header=True
+                        #  )
+    streamlit_log["app_main_assessment"]["end_time"] = datetime.datetime.now()
+    with open('streamlit_log.yaml', 'a') as outfile:
+        yaml.dump(streamlit_log, outfile, sort_keys=False)
+    del(streamlit_log)
+    st.write('Success, appending run parameters to "streamlit_log.yaml"')
 
 elif loadingButton:
     st.write('**:red[Please fill out all fields!]**')
