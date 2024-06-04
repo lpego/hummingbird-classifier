@@ -3,10 +3,10 @@ import time, datetime
 import tkinter as tk
 from tkinter import filedialog
 import streamlit as st
-import pandas as pd
 import yaml
+from streamlit_utils import select_folder, file_selector
 
-st.title ('BioDetect')
+st.title ('main_assessment.py')
 # run the file: streamlit run app.py
 # file uploader by streamlit run through folder selected per loop
 # give path to folder
@@ -14,21 +14,13 @@ st.title ('BioDetect')
 # write to csv/json (folder path, threshold value, model name)
 
 ### Custom functions
-def select_folder(): 
-   root = tk.Tk()
-   folder_path = filedialog.askdirectory(master=root)
-   root.destroy()
-   return folder_path
-
 def clear():
-    st.session_state.folder_path=None
-    st.session_state.model_path=None
-    st.session_state.config_file=None
-    st.session_state.folder_path3=None
     st.session_state.results_path=None
+    st.session_state.config_folder=False
     st.session_state.config_file=None
-    st.session_state.threshold=0
-    st.session_state.model_select=""
+    st.session_state.update=False
+    st.session_state.aggregate=False
+    st.session_state.plots=False
     
 def checkEmpty():   
     results_var=''
@@ -36,6 +28,7 @@ def checkEmpty():
     # update_var=''
     # aggregate_var=''
     # plots_var= ''
+    # threshold_var=''
     try:
         results_var = st.session_state.results_path
     except:
@@ -56,12 +49,17 @@ def checkEmpty():
     #     plots_var = st.session_state.plots
     # except:
     #     st.write('**:red[Please select whether to plot metrics]**')
+    # try: 
+    #     threshold != 0 | threshold != None
+    # except: 
+    #     st.write('**:red[Please select a threshold]**')
     if (
         results_var != ''
         and config_var != ''
         # and update_var != ''
         # and aggregate_var != ''
         # and plots_var != ''
+        # and threshold != None
     ):
         return True
     else:
@@ -81,33 +79,38 @@ streamlit_log = {"app_main_assessment": {"start_time": datetime.datetime.now()}}
 #    st.write("Selected folder path:", selected_folder_path)
 
 results_path = st.session_state.get("results_path", None)
-folder_select_button4 = st.button("Select folder where results / score CSV are stored")
-if folder_select_button4:
+st.write("Path to the video_scores sub-folder, specific to a model; this folder should contain CSV files with the raw pipeline scores for each video")
+results_path_button = st.button("Select folder")
+if results_path_button:
     results_path = select_folder()
     st.session_state.results_path = results_path
 if results_path:
-    st.write("Selected folder path:", results_path)
+    st.write("Selected results path `%s`" %  results_path)
     streamlit_log["app_main_assessment"]["results_path"] = results_path
 
-config_file = st.session_state.get("config_file", None)
-folder_select_button5 = st.button("Select path to the config file")
-if folder_select_button5:
-    config_file = select_folder()
-    st.session_state.config_file = config_file
-if config_file:
-    config_file_text = st.write("Selected folder path:", config_file)
-    streamlit_log["app_main_assessment"]["config_file"] = config_file
+### Config file nested folder-file select
+st.write("Select configuration file")
+col1, col2 = st.columns([1, 4])
+### Set up nested buttons states
+if not "config_folder" in st.session_state:
+    st.session_state["config_folder"] = False
+### Select config folder
+with col1: 
+    config_folder = st.session_state.get("config_folder", None)
+    # st.write("Select folder where config files are stored")
+    config_folder_button = st.button("Select config folder")
+    if config_folder_button:
+        config_folder = select_folder()
+        st.session_state.config_folder = config_folder
+### Select file in config_folder
+with col2:
+    if st.session_state.config_folder is not False:
+        config_file = file_selector(config_folder)
+        st.session_state.config_file = config_folder
+        st.write('You selected `%s`' % config_file)
+        streamlit_log["app_main_assessment"]["config_file"] = config_file
 
-### Choose model
-option = st.selectbox(
-    'Choose Model',
-    ('','Model Alpha', 'Model Bravo', 'Model Charlie'), 
-    key='model_select')
-# st.write('You selected:', option)
-if option:
-    streamlit_log["app_main_assessment"]["option"] = option
-
-###
+### Checkboxes
 update = st.checkbox("Recompute all metrics for videos in the folder", 
                      value=False, 
                      key="update"
@@ -129,13 +132,6 @@ plots = st.checkbox("Plot metrics",
 if plots: 
     streamlit_log["app_main_assessment"]["plots"] = plots
 
-### Choose threshold
-threshold = st.slider('Enter threshold in %', 
-                      0,100, 
-                      key='threshold') / 100
-if threshold:
-    streamlit_log["app_main_assessment"]["threshold"] = threshold
-
 ### Testing printouts
 if debug: 
     st.write("DEBUGGING INFO:", streamlit_log)
@@ -153,7 +149,7 @@ if loadingButton and checkEmpty():
     time.sleep(2)
     my_bar.empty()
 
-    # ### Write the YAML
+    ### Write the YAML
     streamlit_log["app_main_assessment"]["end_time"] = datetime.datetime.now()
     with open('streamlit_log.yaml', 'a') as outfile:
         yaml.dump(streamlit_log, outfile, sort_keys=False)
