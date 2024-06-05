@@ -6,12 +6,7 @@ import streamlit as st
 import yaml
 from streamlit_utils import select_folder, file_selector
 
-st.title ('main_assessment.py')
-# run the file: streamlit run app.py
-# file uploader by streamlit run through folder selected per loop
-# give path to folder
-# select from txt array
-# write to csv/json (folder path, threshold value, model name)
+st.title ('Assessment - main_assessment.py')
 
 ### Custom functions
 def clear():
@@ -28,7 +23,6 @@ def checkEmpty():
     # update_var=''
     # aggregate_var=''
     # plots_var= ''
-    # threshold_var=''
     try:
         results_var = st.session_state.results_path
     except:
@@ -49,17 +43,12 @@ def checkEmpty():
     #     plots_var = st.session_state.plots
     # except:
     #     st.write('**:red[Please select whether to plot metrics]**')
-    # try: 
-    #     threshold != 0 | threshold != None
-    # except: 
-    #     st.write('**:red[Please select a threshold]**')
     if (
         results_var != ''
         and config_var != ''
         # and update_var != ''
         # and aggregate_var != ''
         # and plots_var != ''
-        # and threshold != None
     ):
         return True
     else:
