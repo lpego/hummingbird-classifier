@@ -1,10 +1,13 @@
-import os
+import os, sys
 import time, datetime
 import tkinter as tk
 from tkinter import filedialog
 import streamlit as st
 import yaml
 from streamlit_utils import select_folder, file_selector
+
+sys.path.append(r'..\..\..')
+from scripts.inference.main_assessment import per_video_assessment
 
 st.title ('Assessment - main_assessment.py')
 
@@ -129,14 +132,17 @@ if debug:
 loadingButton = st.button('Run')
 
 if loadingButton and checkEmpty():
-    ### Progress bar
-    progress_text = 'Loading...'
-    my_bar = st.progress(0, text=progress_text)
-    for percent_complete in range(100):
-        time.sleep(0.01)
-        my_bar.progress(percent_complete + 1, text=progress_text)
-    time.sleep(2)
-    my_bar.empty()
+    # ### Progress bar
+    # progress_text = 'Loading...'
+    # my_bar = st.progress(0, text=progress_text)
+    # for percent_complete in range(100):
+    #     time.sleep(0.01)
+    #     my_bar.progress(percent_complete + 1, text=progress_text)
+    # time.sleep(2)
+    # my_bar.empty()
+    
+    per_video_assessment(results_path, 3, config_file)
+    my_bar = st.progress(0, text='Running...')
 
     ### Write the YAML
     streamlit_log["app_main_assessment"]["end_time"] = datetime.datetime.now()
