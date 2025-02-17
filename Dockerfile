@@ -1,27 +1,27 @@
 # For finding latest versions of the base image see
 # https://github.com/SwissDataScienceCenter/renkulab-docker
-ARG RENKU_BASE_IMAGE=renku/renkulab-py:3.10-0.18.1 
+ARG RENKU_BASE_IMAGE=renku/renkulab-py:3.10-0.23.0
 FROM ${RENKU_BASE_IMAGE} as builder
 
 # RENKU_VERSION determines the version of the renku CLI
 # that will be used in this image. To find the latest version,
 # visit https://pypi.org/project/renku/#history.
-ARG RENKU_VERSION=2.6.0
+ARG RENKU_VERSION=2.9.2
 
 # Install renku from pypi or from github if a dev version
 RUN if [ -n "$RENKU_VERSION" ] ; then \
     source .renku/venv/bin/activate ; \
     currentversion=$(renku --version) ; \
     if [ "$RENKU_VERSION" != "$currentversion" ] ; then \
-    pip uninstall renku -y ; \
-    gitversion=$(echo "$RENKU_VERSION" | sed -n "s/^[[:digit:]]\+\.[[:digit:]]\+\.[[:digit:]]\+\(rc[[:digit:]]\+\)*\(\.dev[[:digit:]]\+\)*\(+g\([a-f0-9]\+\)\)*\(+dirty\)*$/\4/p") ; \
-    if [ -n "$gitversion" ] ; then \
-    pip install --no-cache-dir --force "git+https://github.com/SwissDataScienceCenter/renku-python.git@$gitversion" ;\
-    else \
-    pip install --no-cache-dir --force renku==${RENKU_VERSION} ;\
+        pip uninstall renku -y ; \
+        gitversion=$(echo "$RENKU_VERSION" | sed -n "s/^[[:digit:]]\+\.[[:digit:]]\+\.[[:digit:]]\+\(rc[[:digit:]]\+\)*\(\.dev[[:digit:]]\+\)*\(+g\([a-f0-9]\+\)\)*\(+dirty\)*$/\4/p") ; \
+        if [ -n "$gitversion" ] ; then \
+            pip install --no-cache-dir --force "git+https://github.com/SwissDataScienceCenter/renku-python.git@$gitversion" ;\
+        else \
+            pip install --no-cache-dir --force renku==${RENKU_VERSION} ;\
+        fi \
     fi \
-    fi \
-    fi
+fi
 
 #             End Renku install section                #
 ########################################################
@@ -42,9 +42,9 @@ FROM ${RENKU_BASE_IMAGE}
 
 # install the python dependencies
 COPY env_humb.yml /tmp/
-RUN mamba env update -f /tmp/env_humb.yml && \
+RUN mamba env update -n base -f /tmp/env_humb.yml && \
     mamba clean -y --all && \
-    mamba env export -n "root" && \
+    mamba env export -n "base" && \
     rm -rf ${HOME}/.renku/venv
 
 COPY --from=builder ${HOME}/.renku/venv ${HOME}/.renku/venv
