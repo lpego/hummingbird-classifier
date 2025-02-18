@@ -10,13 +10,16 @@
 ## Who can use it? 
 Anyone! 
 
--------------------------------------------
+<!-- ------------------------------------------- -->
 
 # Get started
 <!-- LINKS -->
 The documentation is being finished, [ReadTheDocs](https://hummingbird-classifier.readthedocs.io/en/latest/) link coming soon. 
 
-### Quickstart
+![Overview of hb-class](assets/HB_pipeline_v1.0.png)
+Overview of hummingbird-classifier v1.0
+
+## Quickstart
 
 0. You need to install: 
     - Docker Engine: https://www.docker.com/get-started/
@@ -50,7 +53,7 @@ git clone --single-branch --branch master https://gitlab.renkulab.io/biodetect/h
 
 -------------------------
 
-### Documentation
+## Documentation
 
 *...coming soon...*
 
