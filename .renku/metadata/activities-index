@@ -1,0 +1,13 @@
+{
+  "@renku_data_type": "renku.infrastructure.database.Index",
+  "@renku_oid": "activities-index",
+  "attribute": "id",
+  "entries": {
+    "@renku_data_type": "renku.infrastructure.database.RenkuOOBTree",
+    "@renku_oid": "activities",
+    "@renku_reference": true
+  },
+  "key_type": null,
+  "name": "activities",
+  "object_type": "renku.domain_model.provenance.activity.Activity"
+}
