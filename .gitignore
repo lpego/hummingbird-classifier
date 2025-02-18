@@ -16,6 +16,9 @@ docs/build/
 *.avi
 *.AVI
 
+### Other stuff
+*.csv
+
 ### Emacs ###
 # -*- mode: gitignore; -*-
 *~
