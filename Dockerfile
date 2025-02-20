@@ -40,6 +40,18 @@ FROM ${RENKU_BASE_IMAGE}
 #    vim
 # USER ${NB_USER}
 
+### Install utilities
+USER root
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+    ffmpeg \
+    # libsm6 \
+    # libxext6 \
+    htop \ 
+    git \ 
+    wget
+USER ${NB_USER}
+
 # install the python dependencies
 COPY env_humb.yml /tmp/
 RUN mamba env update -n base -f /tmp/env_humb.yml && \
