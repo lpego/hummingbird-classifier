@@ -54,7 +54,7 @@ USER ${NB_USER}
 
 # install the python dependencies
 COPY env_humb.yml setup.py /tmp/
-ADD /hummingbird-classifier/ /tmp/hummingbird-classifier/
+ADD /src/ /tmp/src/
 RUN mamba env update --name base --file /tmp/env_humb.yml && \
     mamba clean -y --all && \
     mamba env export -n "base" && \
