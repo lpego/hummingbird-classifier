@@ -53,7 +53,7 @@ RUN apt-get update && \
 USER ${NB_USER}
 
 # install the python dependencies
-COPY env_humb.yml setup.py /tmp/
+COPY env_humb.yml setup.py README.md /tmp/
 ADD /src/ /tmp/src/
 RUN mamba env update --name base --file /tmp/env_humb.yml && \
     mamba clean -y --all && \
