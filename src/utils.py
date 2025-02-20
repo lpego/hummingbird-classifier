@@ -1,3 +1,8 @@
+"""
+Module containing utility functions for hummingbird-classifier
+C 2025, M. Volpi, Swiss Data Science Center
+"""
+
 from torchvision import models, transforms
 
 from pathlib import Path
