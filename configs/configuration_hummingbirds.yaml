@@ -19,7 +19,7 @@ trcl_batch_size: 32
 trcl_weight_decay: 0.0000001
 trcl_number_epochs: 50
 trcl_step_size_decay: 1
-trcl_num_workers: 16
+trcl_num_workers: 4
 trcl_wandb_project_name: hummingbird-classification # needed if using weight and biases logger
 trcl_logger: wandb # tensorboard | wandb -- select the logger for training
 trcl_save_topk: 1
