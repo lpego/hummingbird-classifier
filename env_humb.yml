@@ -26,3 +26,4 @@ dependencies:
     - sphinx-rtd-theme==1.2.2
     - tensorboard==2.13.0
     - tensorboardX==2.6.2
+    - -e .
