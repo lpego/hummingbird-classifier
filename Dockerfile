@@ -53,8 +53,9 @@ RUN apt-get update && \
 USER ${NB_USER}
 
 # install the python dependencies
-COPY env_humb.yml /tmp/
-RUN mamba env update -n base -f /tmp/env_humb.yml && \
+COPY env_humb.yml setup.py /tmp/
+ADD /hummingbird-classifier/ /tmp/hummingbird-classifier/
+RUN mamba env update --name base --file /tmp/env_humb.yml && \
     mamba clean -y --all && \
     mamba env export -n "base" && \
     rm -rf ${HOME}/.renku/venv
