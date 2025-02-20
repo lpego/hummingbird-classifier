@@ -27,29 +27,51 @@ Overview of hummingbird-classifier v1.0
 1. Clone repo:
 ``` bash
 git clone --single-branch --branch master https://gitlab.renkulab.io/biodetect/hummingbird-classifier
+cd hummingbird-classifier
 ```
 2. Download models and unpack in `hummingird-classifier/models`: [Linkie coming soon](https://gitlab.renkulab.io/biodetect/hummingbird-classifier)
-3. Pull and run the Docker image, binding current folder as volume: 
+3. Pull and run the Docker image, binding current folder as volume; run the below commands **one by one**: 
 
     Linux / MacOS
     ``` bash
-    docker run --rm -ti -v ${PWD}:/work/hummingbird-classifier --workdir /work/hummingbird-classifier -p 8888:8888 registry.renkulab.io/biodetect/hummingbird-classifier:bd91631 jupyter lab --ip=0.0.0.0
+    commit_sha=$(git rev-parse --short=7 origin/HEAD)
+    docker run --rm -ti -v ${PWD}:/work/hummingbird-classifier --workdir /work/hummingbird-classifier -p 8888:8888 registry.renkulab.io/biodetect/hummingbird-classifier:${commit_sha} jupyter lab --ip=0.0.0.0
     ```
     Windows
-    ```powershell
-    docker run --rm -ti -v %cd%:/work/hummingbird-classifier --workdir /work/hummingbird-classifier -p 8888:8888 registry.renkulab.io/biodetect/hummingbird-classifier:bd91631 jupyter lab --ip=0.0.0.0
+    ``` batch
+    for /f %i in ('git.exe rev-parse HEAD') do set commit_sha=%i
+    set commit_sha=%commit_sha:~0,7%
+    docker run --rm -ti -v %cd%:/work/hummingbird-classifier --workdir /work/hummingbird-classifier -p 8888:8888 registry.renkulab.io/biodetect/hummingbird-classifier:%commit_sha% jupyter lab --ip=0.0.0.0
     ```
-4. Wait for the image to be pulled and run: 
-    - The first time, it will take a long time because it has to download the image (~10 GB); successive runs will be much faster
+4. Run the command: 
+    - The first time, it will take a long time because it has to download the image (~10 GB); successive runs will be much faster.
     - Once the Docker container is running, your terminal should display something like:
-        ``` 
-        To access the server, open this file in a browser:
-            file:///home/jovyan/.local/share/jupyter/runtime/jpserver-14-open.html
-        Or copy and paste one of these URLs:
-            http://a62c488a6f4c:8888/lab?token=2fb162adc7251f04e37cb8d6f1f55db2fbdbc7d2e1d9e1e8
-            http://127.0.0.1:8888/lab?token=2fb162adc7251f04e37cb8d6f1f55db2fbdbc7d2e1d9e1e8
+    ``` 
+    To access the server, open this file in a browser:
+        file:///home/jovyan/.local/share/jupyter/runtime/jpserver-14-open.html
+    Or copy and paste one of these URLs:
+        http://a62c488a6f4c:8888/lab?token=2fb162adc7251f04e37cb8d6f1f55db2fbdbc7d2e1d9e1e8
+        http://127.0.0.1:8888/lab?token=2fb162adc7251f04e37cb8d6f1f55db2fbdbc7d2e1d9e1e8
+    ```
+    - Copy-paste the **third** URL displayed in your terminal in a web browser (i.e. Firefox, Chrome) and you should see the Jupyterlab interface. 
+
+5. Once in the Jupyerlab interface, you can run the inference script: 
+    - On the left-hand pane, you can navigate the files like a normal folder; double-clicking them will open them.
+    - Open `workflows/run_pipeline.sh`
+    - Modify the first few lines so they look like this (don't forget to save them if you modify them!): 
+    ``` bash
+    ROOT_DIR="/work/hummingbird-classifier"
+    MODEL="mobilenet-v0"
+    VIDEO_PATH="${ROOT_DIR}/demo"
+    ANNOTATIONS="${ROOT_DIR}/data/Weinstein2018MEE_ground_truth.csv"
+    ```
+    - In a new tab, click "Terminal".
+    - Type in, **one by one** these commands:
         ```
-    - Copy-paste the third URL displayed in your terminal in a web browser (i.e. Firefox, Chrome) and you should see the Jupyterlab interface. 
+        cd workflows
+        run_pipeline.sh
+        ```
+    - Wait for the model to run, then inspect results in `results`.
 
 -------------------------
 
