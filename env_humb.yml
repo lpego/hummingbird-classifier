@@ -1,7 +1,7 @@
 name: humb
 
 channels:
-  - pytorch
+  # - pytorch
   - nvidia
   - conda-forge
 
