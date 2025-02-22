@@ -14,6 +14,7 @@ import numpy as np
 import pandas as pd
 import pytorch_lightning as pl
 
+import pathlib
 from pathlib import Path
 from skimage import exposure
 
@@ -56,12 +57,29 @@ def per_video_frame_inference(video_folder, args, config):
     # || GOOD ixpfqgvo very very long 3pau0qtg / very long 32tka2n9 / long 22m0pigr / mid bqoy698f / short 23rgsozp
     # THIS WORKS LESS WELL: 1zh8fqdf
     # dirs = find_checkpoints(Path(f"{prefix}hummingbirds-pil"), version="24zruk7z", log="last")#.glob("**/*.ckpt"))
-
+    
+    ### resolving Path in Windows
+    if (sys.platform == "win32"):
+        temp = pathlib.PosixPath
+        pathlib.PosixPath = pathlib.WindowsPath
+        
     model = HummingbirdModel()
     model = model.load_from_checkpoint(
         checkpoint_path=mod_path,
         # hparams_file= str(mod_path.parents[1] / 'hparams.yaml') #same params as args
     )
+    
+    ### Check for GPU, otherwise default to CPU
+    if torch.cuda.is_available(): 
+        model.model = model.load_from_checkpoint(
+            checkpoint_path=mod_path, map_location=torch.device("cuda")
+            )
+        model.to("cuda") 
+    else: 
+        model.model = model.load_from_checkpoint(
+            checkpoint_path=mod_path, map_location=torch.device("cpu")
+            )
+        model.to("cpu")
 
     # Not used at inference, blank out
     model.pos_data_dir = Path("")
@@ -159,6 +177,9 @@ def per_video_frame_inference(video_folder, args, config):
         video_scores["ground_truth"] = -1 * np.ones((len(video_scores.ground_truth),))
         video_scores.loc[annot.index, "ground_truth"] = annot.Truth
         video_scores.to_csv(args.output_file_dataframe, index=False)
+        
+    if (sys.platform == "win32"):
+        pathlib.PosixPath = temp ### restore original pathlib function
 
     return None
 
