@@ -1,24 +1,14 @@
-# %%
 import os, sys
-
-os.environ["MKL_THREADING_LAYER"] = "GNU"
-
-import torch
-
-torch.hub.set_dir("/data/shared/hummingbird-classifier/models/")
-
 import argparse
 import yaml
-
 import numpy as np
 import pandas as pd
-import pytorch_lightning as pl
-
 import pathlib
 from pathlib import Path
-from skimage import exposure
 
-sys.path.append(".")
+import torch
+import pytorch_lightning as pl
+from skimage import exposure
 
 from src.utils import (
     find_checkpoints,
@@ -27,6 +17,9 @@ from src.utils import (
 from src.ChangeDetectionUtils import main_triplet_difference
 from src.HummingbirdModel import HummingbirdModel
 
+sys.path.append(".")
+os.environ["MKL_THREADING_LAYER"] = "GNU"
+torch.hub.set_dir("././models/hub/")
 
 def per_video_frame_inference(video_folder, args, config):
     """
@@ -47,7 +40,7 @@ def per_video_frame_inference(video_folder, args, config):
         Saves the scores in a csv file at a designated location
     """
 
-    # Load trained model
+    ### Load trained model checkpoints
     dirs = find_checkpoints(args.model_path, type=config.infe_load_model)
     mod_path = dirs[
         -1
@@ -58,16 +51,13 @@ def per_video_frame_inference(video_folder, args, config):
     # THIS WORKS LESS WELL: 1zh8fqdf
     # dirs = find_checkpoints(Path(f"{prefix}hummingbirds-pil"), version="24zruk7z", log="last")#.glob("**/*.ckpt"))
     
-    ### resolving Path in Windows
+    ### Resolving Path in Windows
     if (sys.platform == "win32"):
         temp = pathlib.PosixPath
         pathlib.PosixPath = pathlib.WindowsPath
-        
+    
+    ### Load custom model class
     model = HummingbirdModel()
-    model = model.load_from_checkpoint(
-        checkpoint_path=mod_path,
-        # hparams_file= str(mod_path.parents[1] / 'hparams.yaml') #same params as args
-    )
     
     ### Check for GPU, otherwise default to CPU
     if torch.cuda.is_available(): 
@@ -89,7 +79,6 @@ def per_video_frame_inference(video_folder, args, config):
     # Load video into dataloader
     video_name = video_folder.stem
 
-    #
     # This is file specific, different CSV might have different colnames etc
     annot = pd.read_csv(args.annotation_file).drop_duplicates()
     annot = annot[annot.Video == video_name].sort_values("Frame")
@@ -183,9 +172,6 @@ def per_video_frame_inference(video_folder, args, config):
 
     return None
 
-
-# %%
-
 if __name__ == "__main__":
     args = argparse.ArgumentParser(description="Hummingbird inference script")
     args.add_argument(
@@ -240,8 +226,6 @@ for video in video_list[:]:
     print(f"Running inference on {video}")
     per_video_frame_inference(video, args, config)
 
-
-# %%
 # args = {}
 # args["model_path"] = Path("/data/shared/hummingbird-classifier/models/convnext_v0")
 # args["video_name"] = Path("/data/shared/frame-diff-anomaly/data/FH102_02")
