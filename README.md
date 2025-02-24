@@ -14,7 +14,7 @@ Anyone!
 
 # Get started
 <!-- LINKS -->
-The documentation is being finished, [ReadTheDocs](https://hummingbird-classifier.readthedocs.io/en/latest/) link coming soon. 
+The documentation is being finished, [ReadTheDocs](https://hummingbird-classifier.readthedocs.io/en/latest/) link coming soon.
 
 ![Overview of hb-class](assets/HB_pipeline_v1.0.png)
 Overview of hummingbird-classifier v1.0
