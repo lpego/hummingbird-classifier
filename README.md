@@ -27,7 +27,7 @@ Overview of hummingbird-classifier v1.0
 1. Clone repo:
 ``` bash
 git clone --single-branch --branch master https://gitlab.renkulab.io/biodetect/hummingbird-classifier
-cd hummingbird-classifier
+cd hummingbird-classifier 
 ```
 2. Download models and unpack in `hummingird-classifier/models`: [Linkie coming soon](https://gitlab.renkulab.io/biodetect/hummingbird-classifier)
 3. Pull and run the Docker image, binding current folder as volume; run the below commands **one by one**: 
