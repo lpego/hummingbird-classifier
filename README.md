@@ -21,7 +21,7 @@ Overview of hummingbird-classifier v1.0
 
 ## Quickstart
 
-0. You need to install: 
+0. You need to install:
     - Docker Engine: https://www.docker.com/get-started/
     - git: https://git-scm.com/book/en/v2/Getting-Started-Installing-Git
 1. Clone repo:
