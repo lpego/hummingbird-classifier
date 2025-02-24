@@ -8,7 +8,7 @@
 `hummingbird-classifier` can sort images likely to contain a hummingbird from images without hummingbirds. It *cannot* localise (i.e. draw a box around) the object of interest, and it will most likely *not work* for any other visitor but hummingbirds. 
 
 ## Who can use it? 
-Anyone! 
+Anyone!
 
 <!-- ------------------------------------------- -->
 
