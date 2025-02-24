@@ -21,6 +21,7 @@ sys.path.append(".")
 os.environ["MKL_THREADING_LAYER"] = "GNU"
 torch.hub.set_dir("././models/hub/")
 
+
 def per_video_frame_inference(video_folder, args, config):
     """
     Predict scores for frame of a given video
@@ -50,25 +51,25 @@ def per_video_frame_inference(video_folder, args, config):
     # || GOOD ixpfqgvo very very long 3pau0qtg / very long 32tka2n9 / long 22m0pigr / mid bqoy698f / short 23rgsozp
     # THIS WORKS LESS WELL: 1zh8fqdf
     # dirs = find_checkpoints(Path(f"{prefix}hummingbirds-pil"), version="24zruk7z", log="last")#.glob("**/*.ckpt"))
-    
+
     ### Resolving Path in Windows
-    if (sys.platform == "win32"):
+    if sys.platform == "win32":
         temp = pathlib.PosixPath
         pathlib.PosixPath = pathlib.WindowsPath
-    
+
     ### Load custom model class
     model = HummingbirdModel()
-    
+
     ### Check for GPU, otherwise default to CPU
-    if torch.cuda.is_available(): 
+    if torch.cuda.is_available():
         model.model = model.load_from_checkpoint(
             checkpoint_path=mod_path, map_location=torch.device("cuda")
-            )
-        model.to("cuda") 
-    else: 
+        )
+        model.to("cuda")
+    else:
         model.model = model.load_from_checkpoint(
             checkpoint_path=mod_path, map_location=torch.device("cpu")
-            )
+        )
         model.to("cpu")
 
     # Not used at inference, blank out
@@ -166,11 +167,12 @@ def per_video_frame_inference(video_folder, args, config):
         video_scores["ground_truth"] = -1 * np.ones((len(video_scores.ground_truth),))
         video_scores.loc[annot.index, "ground_truth"] = annot.Truth
         video_scores.to_csv(args.output_file_dataframe, index=False)
-        
-    if (sys.platform == "win32"):
-        pathlib.PosixPath = temp ### restore original pathlib function
+
+    if sys.platform == "win32":
+        pathlib.PosixPath = temp  ### restore original pathlib function
 
     return None
+
 
 if __name__ == "__main__":
     args = argparse.ArgumentParser(description="Hummingbird inference script")
@@ -217,8 +219,21 @@ config = cfg_to_arguments(config)
 if not args.output_file_folder.exists():
     args.output_file_folder.mkdir(parents=True)
 
-video_list = sorted(list(args.videos_root_folder.glob("*")))
-print(f"Found {len(video_list)} videos, running inference on those.")
+
+# check if there are any subfolders in the videos_root_folder
+# if not, assume that the videos_rood_folder points at a single video where all frames are
+# if yes, assume that each subfolder is a video
+if not any(args.videos_root_folder.iterdir()):
+    # check if there are image files in there
+    if any(args.videos_root_folder.glob("*.jpg")):
+        video_list = [args.videos_root_folder]
+        print(f"Found no video, running inference on this folder.")
+    else:
+        print(f"Found no video, and no jpg files in this folder. Exiting.")
+        sys.exit(0)
+else:
+    video_list = sorted(list(args.videos_root_folder.glob("*")))
+    print(f"Found {len(video_list)} videos, running inference on those.")
 # for video in video_list:
 #     print(video)
 
