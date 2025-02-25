@@ -222,57 +222,37 @@ if __name__ == "__main__":
 
     # check if there are any subfolders in the videos_root_folder
     # if not, assume that the videos_rood_folder points at a single video where all frames are
-    # if yes, assume that each subfolder is a video
-    # if not any(args.videos_root_folder.iterdir()):
-    #     # check if there are image files in there
-    #     if any(args.videos_root_folder.glob("*.jpg")):
-    #         video_list = [args.videos_root_folder]
-    #         print(f"Found no video, running inference on this folder.")
-    #     else:
-    #         print(f"Found no video, and no jpg files in this folder. Exiting.")
-    #         sys.exit(0)
-    # else:
-    #     subfolders = [args.videos_root_folder.glob("*/")]
-    #     image_files = [args.videos_root_folder.glob("*.jpg")]
-    #     if subfolders and image_files:
-    #         print("Found both frames and folders in this directory, not supported! Please run on frames OR directories, not both.")
-    #         sys.exit(0)
-    #     elif subfolders:
-    #         video_list = sorted(subfolders)
-    #         print(f"Found {len(video_list)} videos, running inference on those.")
-    #     else:
-    #         video_list = [args.videos_root_folder]
-    #         print(f"Found no subfolders, running inference on this folder.")
-            
+    # if yes, assume that each subfolder is a video.
     if not any(args.videos_root_folder.iterdir()):
-        # check if there are image files in there
-        if any(args.videos_root_folder.glob("*.jpg")):
-            video_list = [args.videos_root_folder]
-            print(f"Found no video, running inference on this folder.")
-        else:
-            print(f"Found no video, and no jpg files in this folder. Exiting.")
-            sys.exit(0)
+        print(f"Found no files or subfolders in {args.videos_root_folder}. Exiting.")
+        sys.exit(0)
     else:
-        subfolders = []
-        for path in args.videos_root_folder.rglob("*"):
-            if path.is_dir(): subfolders.append(path)
-        image_files = args.videos_root_folder.glob("*.jpg")
+        subfolders = [path for path in args.videos_root_folder.iterdir() if path.is_dir()]
+        image_files = list(args.videos_root_folder.glob("*.jpg"))
+
         if subfolders and image_files:
-            print("Found both frames and folders in this directory, not supported! Please run on frames OR directories, not both.")
+            print("Found both images and folders in this folder, not supported! Please run on frames OR folders, not both.")
             sys.exit(0)
         elif subfolders:
-            video_list = sorted(subfolders)
-            print(f"Found {len(video_list)} videos, running inference on those.")
-        else:
+            video_list = []
+            for subfolder in subfolders:
+                subfolder_images = list(subfolder.glob("*.jpg"))
+                if subfolder_images:
+                    video_list.append(subfolder)
+                else:
+                    print(f"Subfolder {subfolder} contains no jpg files. Exiting.")
+                    sys.exit(0)
+            print(f"Found {len(video_list)} folders with images, running inference on those.")
+        elif image_files:
             video_list = [args.videos_root_folder]
-            print(f"Found no subfolders, running inference on this folder.")
+            print(f"Found {len(image_files)} images, running inference on those.")
+        else:
+            print(f"Found no jpg files in {args.videos_root_folder}. Exiting.")
+            sys.exit(0)
 
-    # for video in video_list:
-    #     print(video)
-
-    for video in video_list[:]:
+    for video in video_list:
         print(f"Running inference on {video}")
-        per_video_frame_inference(video, args, config)
+        # per_video_frame_inference(video, args, config)
 
 # args = {}
 # args["model_path"] = Path("/data/shared/hummingbird-classifier/models/convnext_v0")
