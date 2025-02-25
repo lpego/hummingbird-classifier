@@ -1,4 +1,3 @@
-
 # Created by https://www.gitignore.io/api/macos,python,R,linux,vim,emacs,visualstudiocode,intellij
 # Edit at https://www.gitignore.io/?templates=macos,python,R,linux,vim,emacs,visualstudiocode,intellij
 
@@ -8,16 +7,33 @@
 lostandfound/ 
 docs/build/
 
-### Media files
+### Media file extensions
 *.jpg
 *.jpeg
 *.JPG
 *.JPEG
 *.avi
 *.AVI
+*.h264
+*.h264
+*.mp4
+*.MP4
 
-### Other stuff
+### Other extensions
 *.csv
+
+### Manually added directories generated during tutorials/notebooks
+results
+docs/html
+docs/_static
+### ignore all data except the examples
+data/*
+data/*/*
+data/*/*/*
+!data/demo
+### ignore models checkpoints
+models/hub
+*.pth
 
 ### Emacs ###
 # -*- mode: gitignore; -*-
