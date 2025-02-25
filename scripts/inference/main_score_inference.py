@@ -237,13 +237,13 @@ if __name__ == "__main__":
             for subfolder in subfolders:
                 subfolder_images = list(subfolder.glob("*.jpg"))
                 if subfolder_images:
-                    video_list.extend(subfolder_images)
+                    video_list.append(subfolder)
                 else:
                     print(f"Subfolder {subfolder} contains no jpg files. Exiting.")
                     sys.exit(0)
-            print(f"Found {len(video_list)} images in subfolders, running inference on those.")
+            print(f"Found {len(video_list)} subfolders with images, running inference on those.")
         elif image_files:
-            video_list = image_files
+            video_list = [args.videos_root_folder]
             print(f"Found {len(image_files)} images, running inference on those.")
         else:
             print(f"Found no jpg files in {args.videos_root_folder}. Exiting.")
@@ -251,7 +251,7 @@ if __name__ == "__main__":
 
     for video in video_list:
         print(f"Running inference on {video}")
-        # per_video_frame_inference(video, args, config)
+        per_video_frame_inference(video, args, config)
 
 # args = {}
 # args["model_path"] = Path("/data/shared/hummingbird-classifier/models/convnext_v0")
