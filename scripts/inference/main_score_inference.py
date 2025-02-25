@@ -223,6 +223,27 @@ if not args.output_file_folder.exists():
 # check if there are any subfolders in the videos_root_folder
 # if not, assume that the videos_rood_folder points at a single video where all frames are
 # if yes, assume that each subfolder is a video
+# if not any(args.videos_root_folder.iterdir()):
+#     # check if there are image files in there
+#     if any(args.videos_root_folder.glob("*.jpg")):
+#         video_list = [args.videos_root_folder]
+#         print(f"Found no video, running inference on this folder.")
+#     else:
+#         print(f"Found no video, and no jpg files in this folder. Exiting.")
+#         sys.exit(0)
+# else:
+#     subfolders = [args.videos_root_folder.glob("*/")]
+#     image_files = [args.videos_root_folder.glob("*.jpg")]
+#     if subfolders and image_files:
+#         print("Found both frames and folders in this directory, not supported! Please run on frames OR directories, not both.")
+#         sys.exit(0)
+#     elif subfolders:
+#         video_list = sorted(subfolders)
+#         print(f"Found {len(video_list)} videos, running inference on those.")
+#     else:
+#         video_list = [args.videos_root_folder]
+#         print(f"Found no subfolders, running inference on this folder.")
+        
 if not any(args.videos_root_folder.iterdir()):
     # check if there are image files in there
     if any(args.videos_root_folder.glob("*.jpg")):
@@ -232,8 +253,20 @@ if not any(args.videos_root_folder.iterdir()):
         print(f"Found no video, and no jpg files in this folder. Exiting.")
         sys.exit(0)
 else:
-    video_list = sorted(list(args.videos_root_folder.glob("*")))
-    print(f"Found {len(video_list)} videos, running inference on those.")
+    subfolders = []
+    for path in args.videos_root_folder.rglob("*"):
+        if path.is_dir(): subfolders.append(path)
+    image_files = args.videos_root_folder.glob("*.jpg")
+    if subfolders and image_files:
+        print("Found both frames and folders in this directory, not supported! Please run on frames OR directories, not both.")
+        sys.exit(0)
+    elif subfolders:
+        video_list = sorted(subfolders)
+        print(f"Found {len(video_list)} videos, running inference on those.")
+    else:
+        video_list = [args.videos_root_folder]
+        print(f"Found no subfolders, running inference on this folder.")
+
 # for video in video_list:
 #     print(video)
 
