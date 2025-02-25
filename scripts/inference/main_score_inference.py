@@ -72,13 +72,14 @@ def per_video_frame_inference(video_folder, args, config):
         )
         model.to("cpu")
 
-    # Not used at inference, blank out
-    model.pos_data_dir = Path("")
-    model.neg_data_dir = Path("")
-    model.eval()
+    # # Not used at inference, blank out
+    # model.pos_data_dir = Path("")
+    # model.neg_data_dir = Path("")
+    # model.eval()
 
     # Load video into dataloader
     video_name = video_folder.stem
+    image_files = list(video_folder.glob("*.jpg"))
 
     # This is file specific, different CSV might have different colnames etc
     annot = pd.read_csv(args.annotation_file).drop_duplicates()
@@ -116,6 +117,9 @@ def per_video_frame_inference(video_folder, args, config):
         video_scores = pd.DataFrame(
             [], columns=["score_class", "diff_score", "change_score", "ground_truth"]
         )
+
+    # Add image paths to video_scores
+    video_scores["image_path"] = [str(image) for image in image_files]
 
     if args.update or file_missing or update_score:
         dataloader = model.tst_external_dataloader(path=video_folder, batch_size=64)
