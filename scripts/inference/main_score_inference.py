@@ -219,7 +219,6 @@ if __name__ == "__main__":
     if not args.output_file_folder.exists():
         args.output_file_folder.mkdir(parents=True)
 
-
     # check if there are any subfolders in the videos_root_folder
     # if not, assume that the videos_rood_folder points at a single video where all frames are
     # if yes, assume that each subfolder is a video.
@@ -238,13 +237,13 @@ if __name__ == "__main__":
             for subfolder in subfolders:
                 subfolder_images = list(subfolder.glob("*.jpg"))
                 if subfolder_images:
-                    video_list.append(subfolder)
+                    video_list.extend(subfolder_images)
                 else:
                     print(f"Subfolder {subfolder} contains no jpg files. Exiting.")
                     sys.exit(0)
-            print(f"Found {len(video_list)} folders with images, running inference on those.")
+            print(f"Found {len(video_list)} images in subfolders, running inference on those.")
         elif image_files:
-            video_list = [args.videos_root_folder]
+            video_list = image_files
             print(f"Found {len(image_files)} images, running inference on those.")
         else:
             print(f"Found no jpg files in {args.videos_root_folder}. Exiting.")
