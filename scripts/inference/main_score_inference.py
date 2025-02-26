@@ -93,7 +93,7 @@ def per_video_frame_inference(video_folder, args, config):
     args.output_file_dataframe = args.output_file_folder / f"{video_name}.csv"
 
     # now check if all scores are in the prediction csv summary, if not (or if flag "update == True") compute
-    # 1 - ouput frame probabilities from trained model
+    # 1 - output frame probabilities from trained model
     # try to read the results csv, and get columns. if the file does not exist, raise a flag
     # if the file exists, check if the right column is there, if not raise a flag to compute it
 
@@ -104,12 +104,14 @@ def per_video_frame_inference(video_folder, args, config):
         update_diff = True if video_scores["diff_score"].isna().any() else False
         update_change = (
             True
-            if video_scores["change_score"].isna().any() not in video_scores.columns
+            if "change_score" not in video_scores.columns
+            or video_scores["change_score"].isna().any()
             else False
         )
         update_gt = (
             True
-            if video_scores["ground_truth"].isna().any() not in video_scores.columns
+            if "ground_truth" not in video_scores.columns
+            or video_scores["ground_truth"].isna().any()
             else False
         )
     else:
@@ -227,7 +229,9 @@ if not any(args.videos_root_folder.iterdir()):
     # check if there are image files in there
     if any(args.videos_root_folder.glob("*.jpg")):
         video_list = [args.videos_root_folder]
-        print(f"Found no video, running inference on this folder.")
+        print(
+            f"Found no video folders, running inference on frames fund in this folder."
+        )
     else:
         print(f"Found no video, and no jpg files in this folder. Exiting.")
         sys.exit(0)
@@ -240,15 +244,3 @@ else:
 for video in video_list[:]:
     print(f"Running inference on {video}")
     per_video_frame_inference(video, args, config)
-
-# args = {}
-# args["model_path"] = Path("/data/shared/hummingbird-classifier/models/convnext_v0")
-# args["video_name"] = Path("/data/shared/frame-diff-anomaly/data/FH102_02")
-# args["annotation_file"] = Path(
-#     "/data/shared/hummingbird-classifier/data/Weinstein2018MEE_ground_truth.csv"
-# )
-# args["output_file_dataframe"] = Path(
-#     "/data/shared/hummingbird-classifier/outputs/video_scores/"
-# )
-# args["update"] = False
-# args = cfg_to_arguments(args)
