@@ -94,7 +94,7 @@ def per_video_frame_inference(video_folder, args, config):
     args.output_file_dataframe = args.output_file_folder / f"{video_name}.csv"
 
     # now check if all scores are in the prediction csv summary, if not (or if flag "update == True") compute
-    # 1 - ouput frame probabilities from trained model
+    # 1 - output frame probabilities from trained model
     # try to read the results csv, and get columns. if the file does not exist, raise a flag
     # if the file exists, check if the right column is there, if not raise a flag to compute it
 
@@ -105,12 +105,14 @@ def per_video_frame_inference(video_folder, args, config):
         update_diff = True if video_scores["diff_score"].isna().any() else False
         update_change = (
             True
-            if video_scores["change_score"].isna().any() not in video_scores.columns
+            if "change_score" not in video_scores.columns
+            or video_scores["change_score"].isna().any()
             else False
         )
         update_gt = (
             True
-            if video_scores["ground_truth"].isna().any() not in video_scores.columns
+            if "ground_truth" not in video_scores.columns
+            or video_scores["ground_truth"].isna().any()
             else False
         )
     else:
@@ -230,11 +232,15 @@ if __name__ == "__main__":
         print(f"Found no files or subfolders in {args.videos_root_folder}. Exiting.")
         sys.exit(0)
     else:
-        subfolders = [path for path in args.videos_root_folder.iterdir() if path.is_dir()]
+        subfolders = [
+            path for path in args.videos_root_folder.iterdir() if path.is_dir()
+        ]
         image_files = list(args.videos_root_folder.glob("*.jpg"))
 
         if subfolders and image_files:
-            print("Found both images and folders in this folder, not supported! Please run on frames OR folders, not both.")
+            print(
+                "Found both images and folders in this folder, not supported! Please run on frames OR folders, not both."
+            )
             sys.exit(0)
         elif subfolders:
             video_list = []
@@ -245,7 +251,9 @@ if __name__ == "__main__":
                 else:
                     print(f"Subfolder {subfolder} contains no jpg files. Exiting.")
                     sys.exit(0)
-            print(f"Found {len(video_list)} subfolders with images, running inference on those.")
+            print(
+                f"Found {len(video_list)} subfolders with images, running inference on those."
+            )
         elif image_files:
             video_list = [args.videos_root_folder]
             print(f"Found {len(image_files)} images, running inference on those.")
