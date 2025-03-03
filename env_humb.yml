@@ -1,4 +1,4 @@
-name: hum-cls
+name: humb
 
 channels:
   - nvidia
@@ -26,8 +26,8 @@ dependencies:
     # - wandb==0.15.8
     # - tensorboard==2.13.0
     # - tensorboardX==2.6.2
-    #   # - sphinx==6.2.1
-    #   # - sphinx-collections==0.0.1
-    #   # - sphinx-rtd-theme==1.2.2
-    #   # - nbsphinx==0.9.2
+    - sphinx==6.2.1
+    - sphinx-collections==0.0.1
+    - sphinx-rtd-theme==1.2.2
+    - nbsphinx==0.9.2
     - -e .
