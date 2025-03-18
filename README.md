@@ -14,22 +14,25 @@ Anyone!
 
 # Get started
 <!-- LINKS -->
-The documentation is being finished, [ReadTheDocs](https://hummingbird-classifier.readthedocs.io/en/latest/) link coming soon.
+The documentation is being finished, draft available on [ReadTheDocs](https://hummingbird-classifier.readthedocs.io/en/latest/).
 
 ![Overview of hb-class](assets/HB_pipeline_v1.0.png)
 Overview of hummingbird-classifier v1.0
 
 ## Quickstart
 
-0. You need to install:
+0. Before starting, you need to install:
     - Docker Engine: https://www.docker.com/get-started/
     - git: https://git-scm.com/book/en/v2/Getting-Started-Installing-Git
+
+To function, `hummingbird-classifier` requires three main components: this repository (with all the code to run the various modules), the models (available [here](https://gitlab.renkulab.io/biodetect/hummingbird-classifier-models/)), and images or videos (provided by the user, alternatively demo dataset can be downloaded [here](https://gitlab.renkulab.io/biodetect/hummingbird-classifier-models/-/archive/main/hummingbird-classifier-models-main.zip?path=data/demo)).
+
 1. Clone repo:
 ``` bash
 git clone --single-branch --branch master https://gitlab.renkulab.io/biodetect/hummingbird-classifier
 cd hummingbird-classifier 
 ```
-2. Download models and unpack in `hummingird-classifier/models`: [Linkie coming soon](https://gitlab.renkulab.io/biodetect/hummingbird-classifier)
+2. Download models and unpack in `hummingird-classifier/models`, see dedicated repository [here](https://gitlab.renkulab.io/biodetect/hummingbird-classifier-models/)
 3. Pull and run the Docker image, binding current folder as volume; run the below commands **one by one**: 
 
     Linux / MacOS
