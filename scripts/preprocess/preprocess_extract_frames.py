@@ -36,7 +36,9 @@ def video_to_frames(input_loc, output_loc):
     # Check if there is enough free space
     if not check_free_space(output_loc, required_space_gb):
         print(f"Not enough free space in {output_loc}. Up to {required_space_gb:.2f} GB may be required.")
-        return
+        user_input = input("Do you want to proceed anyway? (yes/no): ")
+        if user_input.lower() != 'yes':
+            return
 
     # Create the output directory if it doesn't exist
     if not os.path.exists(output_loc):
