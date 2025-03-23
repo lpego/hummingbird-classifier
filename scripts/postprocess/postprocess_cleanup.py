@@ -7,7 +7,7 @@ import shutil
 def delete_images_in_directory(input_dir, input_csv=None, threshold=None, out_folder=None):
     """
     Simple function to delete images in a directory, asks for user confirmation, and, 
-    optionally, checks wheter images above a certain threshold have been copied to an output folder.
+    optionally, checks whether images above a certain threshold have been copied to an output folder.
     """
     # Get list of all image files in the input directory
     image_files = list(Path(input_dir).glob('*'))
