@@ -3,11 +3,11 @@
 @REM ## ------------------------------------------------------------------------------------ ##
 @REM ## Definition of running parameters. 
 @REM ## The path specified in ROOT_DIR is for virtual sessions on Renkulab, yours may differ! 
-SET ROOT_DIR=D:\hummingbird-classifier-vm
+SET ROOT_DIR=D:\hummingbird-classifier
 SET MODEL=mobilenet-v0
 @REM SET LSET_FOLD="%ROOT_DIR%\data\mzb_example_data\aggregated_learning_set"
 SET LSET_FOLD=%ROOT_DIR%\data\lset_test\
-SET VIDEO_PATH=D:\hummingbird-classifier-vm\data\frame_diff_anomaly\data\annotated_videos
+SET VIDEO_PATH=D:\hummingbird-classifier\data\demo
 SET ANNOTATIONS=%ROOT_DIR%\data\Weinstein2018MEE_ground_truth.csv
 
 @REM @REM ## FINETUNE MDOEL
@@ -22,9 +22,9 @@ SET ANNOTATIONS=%ROOT_DIR%\data\Weinstein2018MEE_ground_truth.csv
 @REM ## -------------------------------------------------------------------------------- 
 python %ROOT_DIR%\scripts\inference\main_score_inference.py^
     --videos_root_folder %VIDEO_PATH%^
-    --model_path %ROOT_DIR%\models\%MODEL%^
+    --model_path D:\hummingbird-classifier-vm\models\%MODEL%^
     --annotation_file %ANNOTATIONS%^
-    --output_file_folder %ROOT_DIR%\outputs\video_scores\%MODEL%\^
+    --output_file_folder %ROOT_DIR%\outputs\demo^
     --config_file %ROOT_DIR%\configs\configuration_hummingbirds.yaml^
     --update
 
