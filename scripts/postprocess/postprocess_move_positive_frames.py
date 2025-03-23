@@ -4,7 +4,7 @@ import os
 from pathlib import Path
 import shutil
 
-def filter_and_copy_images(input_csv, threshold, out_folder):
+def filter_and_copy_images(input_csv, threshold, out_folder, verbose=False):
     # Read the CSV file
     df = pd.read_csv(input_csv)
     
@@ -21,7 +21,8 @@ def filter_and_copy_images(input_csv, threshold, out_folder):
         
         # Copy the image to the output folder
         shutil.copy(image_path, os.path.join(out_folder, filename))
-        print(f"Copied {image_path} to {out_folder}")
+        if verbose:
+            print(f"Copied {image_path} to {out_folder}")
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Filter and copy images based on model predictions.")
@@ -40,10 +41,19 @@ if __name__ == "__main__":
         type=str, 
         help="Output folder to copy the filtered images."
         )
+    parser.add_argument(
+        "--verbose",
+        "-v",
+        type=bool,
+        required=False,
+        default=False,
+        help="Print more details."
+    )
     
     args = parser.parse_args()
     
     filter_and_copy_images(args.input_csv, 
                            args.threshold, 
-                           args.out_folder
+                           args.out_folder,
+                           args.verbose
                            )
