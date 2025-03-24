@@ -5,7 +5,7 @@ INPUT_VIDEO="/work/hummingbird-classifier/data/try/2024_0906_185436_001.MP4"
 OUTPUT_FRAMES="/work/hummingbird-classifier/data/try/2024_0906_185436_001"
 
 # Extract frames from videos (any format)
-python scripts/preprocess/scripts/preprocess/preprocess_extract_frames.py \
+python scripts/preprocess/preprocess_extract_frames.py \
     --input_loc "$INPUT_VIDEO" \
     --output_loc "$OUTPUT_FRAMES"
 
