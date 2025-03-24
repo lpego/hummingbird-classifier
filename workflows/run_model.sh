@@ -5,7 +5,7 @@ ROOT_DIR="/work/hummingbird-classifier"
 MODEL="mobilenet-v0"
 # LSET_FOLD="${ROOT_DIR}/data/mzb_example_data/aggregated_learning_set"
 LSET_FOLD="${ROOT_DIR}/data/lset_test/"
-VIDEO_PATH="/data/shared/frame-diff-anomaly/data/annotated_videos"
+VIDEO_PATH="${ROOT_DIR}/data/demo"
 ANNOTATIONS="${ROOT_DIR}/data/Weinstein2018MEE_ground_truth.csv"
 
 ## FINETUNE MDOEL
@@ -16,24 +16,24 @@ ANNOTATIONS="${ROOT_DIR}/data/Weinstein2018MEE_ground_truth.csv"
 #     --save_model=${ROOT_DIR}/models/${MODEL} \
 #     --config_file=${ROOT_DIR}/configs/configuration_hummingbirds.yaml \
 
-# ## RUN INFERENCE
-# ## -------------------------------------------------------------------------------- 
-# python ${ROOT_DIR}/scripts/inference/main_score_inference.py \
-#     --videos_root_folder=${VIDEO_PATH} \
-#     --model_path=${ROOT_DIR}/models/${MODEL} \
-#     --annotation_file=${ANNOTATIONS} \
-#     --output_file_folder=${ROOT_DIR}/outputs/video_scores/${MODEL}/ \
-#     --config_file=${ROOT_DIR}/configs/configuration_hummingbirds.yaml \
-#     --update
-
-## RUN EVALUATION
+## RUN INFERENCE
 ## -------------------------------------------------------------------------------- 
-python ${ROOT_DIR}/scripts/inference/main_assessment.py \
-    --results_path=${ROOT_DIR}/outputs/video_scores/${MODEL} \
+python ${ROOT_DIR}/scripts/inference/main_score_inference.py \
+    --videos_root_folder=${VIDEO_PATH} \
+    --model_path=${ROOT_DIR}/models/${MODEL} \
+    --annotation_file=${ANNOTATIONS} \
+    --output_file_folder=${ROOT_DIR}/outputs/video_scores/${MODEL}/ \
     --config_file=${ROOT_DIR}/configs/configuration_hummingbirds.yaml \
-    --update \
-    --aggregate \
-    --make_plots # this only makes an overview plot to summarise results, it's not the nice one
+    --update
+
+# ## RUN EVALUATION
+# ## -------------------------------------------------------------------------------- 
+# python ${ROOT_DIR}/scripts/inference/main_assessment.py \
+#     --results_path=${ROOT_DIR}/outputs/video_scores/${MODEL} \
+#     --config_file=${ROOT_DIR}/configs/configuration_hummingbirds.yaml \
+#     --update \
+#     --aggregate \
+#     --make_plots # this only makes an overview plot to summarise results, it's not the nice one
 
 
 # ## PLOT RESULTS
