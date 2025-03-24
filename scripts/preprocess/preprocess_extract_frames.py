@@ -14,6 +14,7 @@ def check_free_space(output_loc, required_space_gb):
     Returns:
         bool: True if there is enough free space, False otherwise.
     """
+    os.makedirs(output_loc, exist_ok=True)
     total, used, free = shutil.disk_usage(output_loc)
     free_gb = free / (1024 ** 3)
     return free_gb > required_space_gb
