@@ -1,7 +1,7 @@
 #!/bin/bash
 
 
-ROOT_DIR="D:/hummingbird-classifier-vm"
+ROOT_DIR="/work/hummingbird-classifier"
 MODEL="mobilenet-v0"
 # LSET_FOLD="${ROOT_DIR}/data/mzb_example_data/aggregated_learning_set"
 LSET_FOLD="${ROOT_DIR}/data/lset_test/"
