@@ -38,13 +38,13 @@ cd hummingbird-classifier
     Linux / MacOS
     ``` bash
     commit_sha=$(git rev-parse --short=7 origin/HEAD)
-    docker run --rm -ti -v ${PWD}:/work/hummingbird-classifier --workdir /work/hummingbird-classifier -p 8888:8888 registry.renkulab.io/biodetect/hummingbird-classifier:${commit_sha} jupyter lab --ip=0.0.0.0
+    docker run --rm -ti --ipc="host" -v ${PWD}:/work/hummingbird-classifier --workdir /work/hummingbird-classifier -p 8888:8888 registry.renkulab.io/biodetect/hummingbird-classifier:${commit_sha} jupyter lab --ip=0.0.0.0
     ```
     Windows
     ``` batch
     for /f %i in ('git.exe rev-parse HEAD') do set commit_sha=%i
     set commit_sha=%commit_sha:~0,7%
-    docker run --rm -ti -v %cd%:/work/hummingbird-classifier --workdir /work/hummingbird-classifier -p 8888:8888 registry.renkulab.io/biodetect/hummingbird-classifier:%commit_sha% jupyter lab --ip=0.0.0.0
+    docker run --rm -ti --ipc="host" -v %cd%:/work/hummingbird-classifier --workdir /work/hummingbird-classifier -p 8888:8888 registry.renkulab.io/biodetect/hummingbird-classifier:%commit_sha% jupyter lab --ip=0.0.0.0
     ```
 4. Run the command: 
     - The first time, it will take a long time because it has to download the image (~10 GB); successive runs will be much faster.
