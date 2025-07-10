@@ -9,7 +9,7 @@ from PIL import Image
 
 import torch
 
-torch.hub.set_dir("/data/shared/hummingbird-classifier/models/")
+torch.hub.set_dir("./models/")
 
 import pytorch_lightning as pl
 
