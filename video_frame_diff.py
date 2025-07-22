@@ -9,6 +9,8 @@ import cv2
 from skimage import exposure
 from torchcodec.decoders import VideoDecoder
 import matplotlib.pyplot as plt
+import yaml
+from pathlib import Path
 
 
 def normalize_frame(frame):
@@ -36,11 +38,11 @@ def crop_frame(frame, crop_box):
 def preprocess_frame(frame, reference=None, crop_box=None, blur=True):
     """Apply normalization, optional histogram matching, blurring, and cropping."""
     frame = normalize_frame(frame)
-    standardize_frame = lambda x: (x - np.mean(x)) / (np.std(x) + 1e-8)
 
     if reference is not None:
         # frame = match_histogram(frame, reference)
-        frame = standardize_frame(frame)
+        # standardize on statistics of a reference. For self-standardization, use as reference the frame itself
+        frame = (frame - np.mean(reference)) / (np.std(reference) + 1e-8)
 
     if blur:
         frame = blur_frame(frame)
@@ -68,24 +70,35 @@ def visualize_rgb_difference(
 ):
     """Visualize the RGB difference between two frames."""
     plt.figure(figsize=(10, 4))
-    plt.subplot(2, 2, 1)
+    plt.subplot(2, 3, 1)
     plt.imshow(frame1.astype(np.uint8))
     plt.title(title1)
     plt.axis("off")
 
-    plt.subplot(2, 2, 2)
+    plt.subplot(2, 3, 2)
     plt.imshow(frame2.astype(np.uint8))
     plt.title(title2)
     plt.axis("off")
 
-    plt.subplot(2, 2, 3)
+    plt.subplot(2, 3, 3)
     plt.imshow(frame3.astype(np.uint8))
     plt.title(title3)
     plt.axis("off")
 
-    plt.subplot(2, 2, 4)
-    plt.imshow(diff_rgb)
+    plt.subplot(2, 3, 4)
+    plt.imshow(frame2.astype(np.uint8))
+    plt.title("")
+    plt.axis("off")
+
+    plt.subplot(2, 3, 5)
+    plt.imshow(diff_rgb.astype(np.uint8))
     plt.title(titled)
+    plt.axis("off")
+
+    plt.subplot(2, 3, 6)
+    plt.imshow(frame2.astype(np.uint8))
+    plt.imshow(diff_rgb.astype(np.uint8), alpha=0.5)
+    plt.title("")
     plt.axis("off")
 
     plt.tight_layout()
@@ -123,6 +136,39 @@ def main(
     from tqdm import tqdm
     from collections import deque
 
+    # Extract video name for config file
+    video_name = Path(video_path).stem
+
+    # Create configuration dictionary
+    config = {
+        "video_processing": {
+            "video_path": str(video_path),
+            "video_name": video_name,
+            "frame_skip": frame_skip if isinstance(frame_skip, list) else [frame_skip],
+            "visualize": visualize,
+            "extension": Path(video_path).suffix,
+        },
+        "preprocessing": {"crop_box": list(crop_box) if crop_box else None},
+        "frame_difference_analysis": {
+            "use_running_mean": use_running_mean,
+            "running_mean_N": running_mean_N,
+        },
+        "output": {
+            "csv_file": f"{video_name}_processed_diff.csv",
+            "config_file": f"{video_name}_config.yaml",
+        },
+    }
+
+    # Save configuration to YAML file
+    config_filename = f"{video_name}_diff_config.yaml"
+    with open(config_filename, "w") as f:
+        yaml.dump(config, f, default_flow_style=False, indent=2)
+
+    if VERBOSE:
+        print(f"Configuration saved to: {config_filename}")
+
+    reducer = np.sum
+
     decoder = VideoDecoder(video_path)
     num_frames = len(decoder)
 
@@ -141,7 +187,7 @@ def main(
     if use_running_mean:
         running_buffer = deque(maxlen=running_mean_N)
 
-    num_frames = 5000  # len(decoder)
+    num_frames = len(decoder)
     # Per-frame difference (triplet) computation: process on the fly
     for idx in tqdm(range(num_frames), desc="Processing frames"):
         frame = decoder[idx].permute(1, 2, 0).cpu().numpy()
@@ -152,7 +198,7 @@ def main(
             if len(running_buffer) > 0:
                 avg_frame = np.mean(list(running_buffer), axis=0)
                 diff = np.abs(pframe - avg_frame)
-                std_val = np.std(np.linalg.norm(diff, axis=2))
+                std_val = np.std(reducer(diff, axis=2))
                 std_dict[idx][f"std_diff_running_mean_{running_mean_N}"] = std_val
             else:
                 std_dict[idx][f"std_diff_running_mean_{running_mean_N}"] = np.nan
@@ -172,8 +218,8 @@ def main(
                 p3 = preprocess_frame(frame3, crop_box=crop_box)
                 diff21, diff23 = compute_frame_difference(p1, p2, p3)
                 diff_rgb = np.abs(diff21 + diff23)
-                std_val = np.std(np.linalg.norm(diff_rgb, axis=2))
-                std_dict[idx2][f"std_diff_norm_rgb_{fs}"] = std_val
+                std_val = np.std(reducer(diff_rgb, axis=2))
+                std_dict[idx2][f"std_diff_rgb_{fs}"] = std_val
                 if visualize:
                     normalize_frame = lambda x: (x - np.min(x)) / (
                         np.max(x) - np.min(x)
@@ -190,7 +236,7 @@ def main(
                         titled=f"Frame diff (frame_skip={fs})",
                     )
             else:
-                std_dict[idx2][f"std_diff_norm_rgb_{fs}"] = np.nan
+                std_dict[idx2][f"std_diff_rgb_{fs}"] = np.nan
 
     df_std = (
         pd.DataFrame(list(std_dict.values()))
@@ -198,31 +244,101 @@ def main(
         .reset_index(drop=True)
     )
     df_std.index.name = "frame_idx"
-    print(df_std.head())
+
+    if VERBOSE:
+        print(df_std.head())
+
     return df_std
 
 
 if __name__ == "__main__":
 
-    import cProfile, pstats
+    crop_box = (0, 0, 1280, 700)
+    frame_skip = 1
+    visualize = False
+    use_running_mean = True
+    running_mean_N = 20
 
-    video_path = "data/FH102_02.avi"
-    crop_box = (100, 1, 1180, 700)  # Example crop
-    visualize = False  # Set to True to enable visualization
-    frame_skip = [1]  # Skip frames for triplet computation
-
-    # profiler = cProfile.Profile()
-    # profiler.enable()
-    df_change = main(video_path, frame_skip, crop_box, visualize)
-    # profiler.disable()
-
-    df_change.to_csv(
-        f"./processed_{video_path.split('/')[-1].split('.')[0]}_diff.csv", index=False
-    )
-    print(
-        f"Results saved to processed_{video_path.split('/')[-1].split('.')[0]}_diff.csv"
+    test_size = (
+        False  # Set to True to visualize the first frame and crop box and then exit
     )
 
-    # profiler.print_stats(sort="time")
-    # stats = pstats.Stats(profiler).sort_stats("cumtime")
-    # stats.print_stats(20)
+    # Get all FH videos in the /data/ directory
+    if 0:
+        video_dir = "data/insects/"
+        video_files = sorted([str(f) for f in Path(video_dir).rglob("PICT7*.mp4")])
+    else:
+        video_dir = "data/"
+        video_files = sorted([str(f) for f in Path(video_dir).rglob("FH*.avi")])
+
+    if VERBOSE:
+        print(f"Found {len(video_files)} videos in {video_dir}")
+
+    # Loop over the list of videos
+    for video_path in video_files[:]:
+        print(f"Processing video: {video_path}")
+
+        if crop_box is None:
+            print("Crop box is not defined. Please manually draw a bounding box.")
+
+            # Load the first frame of the first video to define the crop box
+            decoder = VideoDecoder(video_path)
+            first_frame = decoder[0].permute(1, 2, 0).cpu().numpy()[..., ::-1]
+
+            # Display the first frame using OpenCV
+            window_name = "Draw a bounding box (Press ENTER when done)"
+            cv2.imshow(window_name, first_frame)  # Convert RGB to BGR for OpenCV
+            crop_box = cv2.selectROI(
+                window_name,
+                first_frame,
+                fromCenter=False,
+                showCrosshair=True,
+            )
+            cv2.destroyAllWindows()
+
+            # Convert crop_box to (x, y, w, h)
+            crop_box = (
+                int(crop_box[0]),
+                int(crop_box[1]),
+                int(crop_box[2]),
+                int(crop_box[3]),
+            )
+            print(f"Crop box defined as: {crop_box}")
+
+        if test_size:
+            # Load the first frame of the first video to define the crop box
+            decoder = VideoDecoder(video_path)
+            first_frame = decoder[0].permute(1, 2, 0).cpu().numpy()
+            # Convert the frame to uint8 for OpenCV display
+            first_frame = (first_frame * 255).astype(np.uint8)
+
+            plt.figure(figsize=(10, 5))
+            plt.imshow(first_frame)
+            plt.title("First Frame with Crop Box")
+            plt.gca().add_patch(
+                plt.Rectangle(
+                    (crop_box[0], crop_box[1]),
+                    crop_box[2],
+                    crop_box[3],
+                    linewidth=2,
+                    edgecolor="r",
+                    facecolor="none",
+                )
+            )
+            plt.show()
+
+            exit()
+
+        df_change = main(
+            video_path,
+            frame_skip=frame_skip,
+            crop_box=crop_box,
+            visualize=visualize,
+            use_running_mean=use_running_mean,
+            running_mean_N=running_mean_N,
+        )
+
+        # Use the same naming convention as video_frame_chist_diff.py
+        fname = f"./{video_path.split('/')[-1].split('.')[0]}_processed_diff.csv"
+        df_change.to_csv(fname, index=False)
+        print(f"Results saved to {fname}")
