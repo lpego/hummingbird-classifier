@@ -43,17 +43,17 @@ for video in "${VIDEOS[@]}"; do
     
     # Run the precision/recall computation
     if python compute_precision_recall.py "$video" \
-        --method both \
+        --method frame_diff chist_diff  \
         --buffer "$BUFFER" \
         --output "$OUTPUT_FOLDER" \
         --plot \
         --results-folder "$RESULTS_FOLDER" \
         --gt-folder "./data"; then
         
-        echo "✅ Successfully processed $video"
+        echo "++ Successfully processed $video"
         ((SUCCESS_COUNT++))
     else
-        echo "❌ Failed to process $video"
+        echo "-- Failed to process $video"
         ((FAILED_COUNT++))
         FAILED_VIDEOS+=("$video")
     fi

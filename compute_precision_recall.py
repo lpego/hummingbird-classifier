@@ -53,7 +53,7 @@ def load_diff_data(video_name, method="frame_diff", results_folder="."):
     elif method == "chist_diff":
         csv_file = os.path.join(
             results_folder,
-            f"{video_name}_processed_chist_diff.csv",
+            f"{video_name}_processed_chist_diff_fixed.csv",
         )
         config_file = os.path.join(results_folder, f"{video_name}_chist_config.yaml")
     else:
@@ -72,6 +72,28 @@ def load_diff_data(video_name, method="frame_diff", results_folder="."):
             config = yaml.safe_load(file)
 
     return df_change, config
+
+
+def load_combined_data(video_name, results_folder="."):
+    """
+    Load combined scores data for the specified video.
+
+    Args:
+        video_name: Name of the video (e.g., 'FH102_02')
+        results_folder: Folder containing the combined results
+    """
+    csv_file = os.path.join(results_folder, f"{video_name}_combined_scores.csv")
+
+    if not os.path.exists(csv_file):
+        raise FileNotFoundError(f"Combined scores file not found: {csv_file}")
+
+    df_combined = pd.read_csv(csv_file)
+    df_combined.index = df_combined["center_idx"]
+    df_combined = df_combined.drop(
+        columns=["center_idx", "video_name"], errors="ignore"
+    )
+
+    return df_combined
 
 
 def compute_aggregated_diff(df_change, method="frame_diff"):
@@ -93,7 +115,25 @@ def compute_aggregated_diff(df_change, method="frame_diff"):
         # For histogram difference: use the stdev_magn_diff_chist column directly
         df_change["aggregated_diff"] = df_change["stdev_magn_diff_chist"]
 
-    # 0-1 normalization
+    elif method == "combined":
+        # For combined scores: use the combined_score column directly (already normalized)
+        if "combined_score" in df_change.columns:
+            df_change["aggregated_diff"] = df_change["combined_score"]
+        else:
+            raise ValueError("Combined scores data missing 'combined_score' column")
+        # Skip normalization since combined_score is already 0-1 normalized
+        return df_change
+
+    elif method == "dl_only":
+        # For deep learning only: use the dl_score column directly (already normalized)
+        if "dl_score" in df_change.columns:
+            df_change["aggregated_diff"] = df_change["dl_score"]
+        else:
+            raise ValueError("Combined scores data missing 'dl_score' column")
+        # Skip normalization since dl_score is already 0-1 normalized
+        return df_change
+
+    # 0-1 normalization (skip for combined and dl_only methods)
     min_val = df_change["aggregated_diff"].min()
     max_val = df_change["aggregated_diff"].max()
     df_change["aggregated_diff"] = (df_change["aggregated_diff"] - min_val) / (
@@ -164,8 +204,13 @@ def create_precision_recall_plots(precision_recall_df, output_folder, video_name
 
     # Separate data by method
     methods = precision_recall_df["method"].unique()
-    colors = {"frame_diff": "blue", "chist_diff": "red"}
-    markers = {"frame_diff": "o", "chist_diff": "s"}
+    colors = {
+        "frame_diff": "blue",
+        "chist_diff": "red",
+        "combined": "green",
+        "dl_only": "orange",
+    }
+    markers = {"frame_diff": "o", "chist_diff": "s", "combined": "^", "dl_only": "d"}
 
     # Calculate random baseline precision (proportion of positive samples)
     num_positives = precision_recall_df["num_positives"].iloc[0]
@@ -359,11 +404,35 @@ def create_precision_recall_plots(precision_recall_df, output_folder, video_name
                         boxstyle="round,pad=0.3", facecolor=colors[method], alpha=0.3
                     ),
                 )
-            else:  # chist_diff
+            elif method == "chist_diff":
                 plt.text(
                     0.02,
                     0.88,
                     f"Hist Diff - Best F1: \n {best_f1:.3f} @ k={best_k}",
+                    transform=plt.gca().transAxes,
+                    fontsize=9,
+                    verticalalignment="top",
+                    bbox=dict(
+                        boxstyle="round,pad=0.3", facecolor=colors[method], alpha=0.3
+                    ),
+                )
+            elif method == "combined":
+                plt.text(
+                    0.02,
+                    0.78,
+                    f"Combined - Best F1: \n {best_f1:.3f} @ k={best_k}",
+                    transform=plt.gca().transAxes,
+                    fontsize=9,
+                    verticalalignment="top",
+                    bbox=dict(
+                        boxstyle="round,pad=0.3", facecolor=colors[method], alpha=0.3
+                    ),
+                )
+            elif method == "dl_only":
+                plt.text(
+                    0.02,
+                    0.68,
+                    f"DL Only - Best F1: \n {best_f1:.3f} @ k={best_k}",
                     transform=plt.gca().transAxes,
                     fontsize=9,
                     verticalalignment="top",
@@ -475,7 +544,7 @@ def create_precision_recall_plots(precision_recall_df, output_folder, video_name
 
     # Create grouped bar plot
     x = np.arange(5)  # 5 metrics to display
-    width = 0.35
+    width = 0.2
 
     metrics = [
         "Max Precision",
@@ -564,9 +633,10 @@ def main():
     parser.add_argument(
         "--method",
         type=str,
-        choices=["frame_diff", "chist_diff", "both"],
-        default="both",
-        help="Method to use: frame_diff, chist_diff, or both (default: both)",
+        nargs="+",  # Allow multiple values
+        choices=["frame_diff", "chist_diff", "combined", "dl_only", "all"],
+        default=["all"],
+        help="Method(s) to use: frame_diff, chist_diff, combined, dl_only, or all. Can specify multiple methods (default: all)",
     )
     parser.add_argument(
         "--buffer",
@@ -604,7 +674,7 @@ def main():
 
     # Set default output filename if not provided
     if args.output is None:
-        if args.method == "both":
+        if args.method == "all":
             args.output = f"{args.video_name}_precision_recall_comparison.csv"
         else:
             args.output = f"{args.video_name}_precision_recall.csv"
@@ -612,7 +682,7 @@ def main():
         # Check if the provided output is a directory
         if os.path.isdir(args.output):
             # If it's a directory, append the appropriate filename
-            if args.method == "both":
+            if args.method == "all":
                 filename = f"{args.video_name}_precision_recall_comparison.csv"
             else:
                 filename = f"{args.video_name}_precision_recall.csv"
@@ -634,9 +704,10 @@ def main():
         print(f"Buffer: {args.buffer}")
 
     # Determine which methods to run
-    methods_to_run = (
-        ["frame_diff", "chist_diff"] if args.method == "both" else [args.method]
-    )
+    if "all" in args.method:
+        methods_to_run = ["frame_diff", "chist_diff", "combined", "dl_only"]
+    else:
+        methods_to_run = args.method
 
     all_results = []
 
@@ -666,9 +737,13 @@ def main():
             if VERBOSE:
                 print(f"Loading {method} data...")
 
-            df_change, config = load_diff_data(
-                args.video_name, method, args.results_folder
-            )
+            if method in ["combined", "dl_only"]:
+                df_change = load_combined_data(args.video_name, args.results_folder)
+                config = None  # No config file for combined scores
+            else:
+                df_change, config = load_diff_data(
+                    args.video_name, method, args.results_folder
+                )
 
             if VERBOSE:
                 print(f"Loaded data with {len(df_change)} frames")
