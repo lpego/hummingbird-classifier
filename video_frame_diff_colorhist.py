@@ -400,12 +400,19 @@ if __name__ == "__main__":
         help="Enable visualization of processing results",
     )
 
+    parser.add_argument(
+        "--crop-box",
+        nargs=4,
+        type=int,
+        default=[0, 0, 1280, 700],
+        help="Crop box as x y w h (default: 0 0 1280 700)",
+    )
     args = parser.parse_args()
 
     # Create output folder path
     outfolder = Path(args.output_folder)
 
-    crop_box = None  # (0, 0, 1280, 700)
+    crop_box = args.crop_box
     frame_skip = 3
     patch_size = (32, 32)
     bins = 8
@@ -415,7 +422,7 @@ if __name__ == "__main__":
         False  # Set to True to visualize the first frame and crop box and then exit
     )
     # Get all FH videos in the /data/ directory
-    if 1:
+    if 0:
         video_dir = "data/insects/"
         video_files = sorted([str(f) for f in Path(video_dir).rglob("PICT7*.mp4")])
 
@@ -494,7 +501,7 @@ if __name__ == "__main__":
 
         fname = (
             outfolder
-            / f"{video_path.split('/')[-1].split('.')[0]}_processed_chist_diff_fixed.csv"
+            / f"{video_path.split('/')[-1].split('.')[0]}_processed_chist_diff.csv"
         )
         df_hist_diff.to_csv(
             fname,
