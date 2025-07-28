@@ -38,26 +38,47 @@ def load_ground_truth(video_name, gt_folder="./data"):
     return gt_video, positives, negatives
 
 
-def load_diff_data(video_name, method="frame_diff", results_folder="."):
+def load_diff_data(video_name, method="colorhist", results_folder="."):
     """
     Load processed difference data for the specified video.
 
     Args:
         video_name: Name of the video (e.g., 'FH102_02')
-        method: 'frame_diff' or 'chist_diff'
+        method: 'colorhist', 'triplet', 'running_mean'
         results_folder: Folder containing the processed results
     """
-    if method == "frame_diff":
-        csv_file = os.path.join(results_folder, f"{video_name}_processed_diff.csv")
-        config_file = os.path.join(results_folder, f"{video_name}_diff_config.yaml")
-    elif method == "chist_diff":
+    if method == "colorhist":
+        # New structure from run_all_frame_analysis.sh: results_folder/color_histogram/
         csv_file = os.path.join(
             results_folder,
-            f"{video_name}_processed_chist_diff_fixed.csv",
+            "color_histogram",
+            f"{video_name}_processed_chist_diff.csv",
         )
-        config_file = os.path.join(results_folder, f"{video_name}_chist_config.yaml")
+        config_file = os.path.join(
+            results_folder, "color_histogram", f"{video_name}_chist_config.yaml"
+        )
+    elif method == "triplet":
+        # New structure from run_all_frame_analysis.sh: results_folder/triplet_analysis/
+        csv_file = os.path.join(
+            results_folder,
+            "triplet_analysis",
+            f"{video_name}_triplet_diff.csv",
+        )
+        config_file = os.path.join(
+            results_folder, "triplet_analysis", f"{video_name}_triplet_config.yaml"
+        )
+    elif method == "running_mean":
+        # New structure from run_all_frame_analysis.sh: results_folder/running_mean/
+        csv_file = os.path.join(
+            results_folder,
+            "running_mean",
+            f"{video_name}_running_mean_diff.csv",
+        )
+        config_file = os.path.join(
+            results_folder, "running_mean", f"{video_name}_running_mean_config.yaml"
+        )
     else:
-        raise ValueError("method must be 'frame_diff' or 'chist_diff'")
+        raise ValueError("method must be 'colorhist', 'triplet', or 'running_mean'")
 
     if not os.path.exists(csv_file):
         raise FileNotFoundError(f"Processed data file not found: {csv_file}")
@@ -96,24 +117,33 @@ def load_combined_data(video_name, results_folder="."):
     return df_combined
 
 
-def compute_aggregated_diff(df_change, method="frame_diff"):
+def compute_aggregated_diff(df_change, method="colorhist"):
     """Compute aggregated difference score based on the method."""
-    if method == "frame_diff":
-        # Match the updated notebook's calculation exactly:
-        # Use only the running mean column directly (no rate_change)
-        running_mean_col = [col for col in df_change.columns if "running_mean" in col]
-        if running_mean_col:
-            # Use the running mean column directly
-            df_change["aggregated_diff"] = df_change[running_mean_col].mean(axis=1)
-        else:
-            # Fallback: use all std_diff columns if no running mean found
-            df_change["aggregated_diff"] = df_change.filter(like="std_diff_").mean(
-                axis=1
-            )
-
-    elif method == "chist_diff":
-        # For histogram difference: use the stdev_magn_diff_chist column directly
+    if method == "colorhist":
+        # For color histogram analysis: use the stdev_magn_diff_chist column directly
         df_change["aggregated_diff"] = df_change["stdev_magn_diff_chist"]
+
+    elif method == "triplet":
+        # For triplet frame analysis: aggregate all std_diff_rgb_{frame_skip} columns
+        triplet_cols = [
+            col for col in df_change.columns if col.startswith("std_diff_rgb_")
+        ]
+        if triplet_cols:
+            df_change["aggregated_diff"] = df_change[triplet_cols].mean(axis=1)
+        else:
+            raise ValueError("Triplet analysis data missing std_diff_rgb_ columns")
+
+    elif method == "running_mean":
+        # For running mean analysis: aggregate all std_diff_running_mean_{N} columns
+        running_mean_cols = [
+            col for col in df_change.columns if col.startswith("std_diff_running_mean_")
+        ]
+        if running_mean_cols:
+            df_change["aggregated_diff"] = df_change[running_mean_cols].mean(axis=1)
+        else:
+            raise ValueError(
+                "Running mean analysis data missing std_diff_running_mean_ columns"
+            )
 
     elif method == "combined":
         # For combined scores: use the combined_score column directly (already normalized)
@@ -205,12 +235,19 @@ def create_precision_recall_plots(precision_recall_df, output_folder, video_name
     # Separate data by method
     methods = precision_recall_df["method"].unique()
     colors = {
-        "frame_diff": "blue",
-        "chist_diff": "red",
+        "colorhist": "red",
+        "triplet": "blue",
+        "running_mean": "purple",
         "combined": "green",
         "dl_only": "orange",
     }
-    markers = {"frame_diff": "o", "chist_diff": "s", "combined": "^", "dl_only": "d"}
+    markers = {
+        "colorhist": "s",
+        "triplet": "o",
+        "running_mean": "^",
+        "combined": "d",
+        "dl_only": "v",
+    }
 
     # Calculate random baseline precision (proportion of positive samples)
     num_positives = precision_recall_df["num_positives"].iloc[0]
@@ -345,7 +382,7 @@ def create_precision_recall_plots(precision_recall_df, output_folder, video_name
         alpha=0.7,
         label=f"Random baseline ({random_precision:.4f})",
     )
-    plt.legend()
+    plt.legend(bbox_to_anchor=(1.05, 1), loc="upper left")
 
     # Remove top and right spines
     ax = plt.gca()
@@ -392,11 +429,11 @@ def create_precision_recall_plots(precision_recall_df, output_folder, video_name
                 linewidth=1,
             )
             # Add text box at top of plot instead of annotations
-            if method == "frame_diff":
+            if method == "colorhist":
                 plt.text(
                     0.02,
                     0.98,
-                    f"Frame Diff - Best F1: \n {best_f1:.3f} @ k={best_k}",
+                    f"Color Hist - Best F1: \n {best_f1:.3f} @ k={best_k}",
                     transform=plt.gca().transAxes,
                     fontsize=9,
                     verticalalignment="top",
@@ -404,11 +441,23 @@ def create_precision_recall_plots(precision_recall_df, output_folder, video_name
                         boxstyle="round,pad=0.3", facecolor=colors[method], alpha=0.3
                     ),
                 )
-            elif method == "chist_diff":
+            elif method == "triplet":
                 plt.text(
                     0.02,
                     0.88,
-                    f"Hist Diff - Best F1: \n {best_f1:.3f} @ k={best_k}",
+                    f"Triplet - Best F1: \n {best_f1:.3f} @ k={best_k}",
+                    transform=plt.gca().transAxes,
+                    fontsize=9,
+                    verticalalignment="top",
+                    bbox=dict(
+                        boxstyle="round,pad=0.3", facecolor=colors[method], alpha=0.3
+                    ),
+                )
+            elif method == "running_mean":
+                plt.text(
+                    0.02,
+                    0.78,
+                    f"Running Mean - Best F1: \n {best_f1:.3f} @ k={best_k}",
                     transform=plt.gca().transAxes,
                     fontsize=9,
                     verticalalignment="top",
@@ -419,7 +468,7 @@ def create_precision_recall_plots(precision_recall_df, output_folder, video_name
             elif method == "combined":
                 plt.text(
                     0.02,
-                    0.78,
+                    0.68,
                     f"Combined - Best F1: \n {best_f1:.3f} @ k={best_k}",
                     transform=plt.gca().transAxes,
                     fontsize=9,
@@ -431,7 +480,7 @@ def create_precision_recall_plots(precision_recall_df, output_folder, video_name
             elif method == "dl_only":
                 plt.text(
                     0.02,
-                    0.68,
+                    0.58,
                     f"DL Only - Best F1: \n {best_f1:.3f} @ k={best_k}",
                     transform=plt.gca().transAxes,
                     fontsize=9,
@@ -634,9 +683,9 @@ def main():
         "--method",
         type=str,
         nargs="+",  # Allow multiple values
-        choices=["frame_diff", "chist_diff", "combined", "dl_only", "all"],
+        choices=["colorhist", "triplet", "running_mean", "combined", "dl_only", "all"],
         default=["all"],
-        help="Method(s) to use: frame_diff, chist_diff, combined, dl_only, or all. Can specify multiple methods (default: all)",
+        help="Method(s) to use: colorhist, triplet, running_mean, combined, dl_only, or all. Can specify multiple methods (default: all)",
     )
     parser.add_argument(
         "--buffer",
@@ -705,7 +754,7 @@ def main():
 
     # Determine which methods to run
     if "all" in args.method:
-        methods_to_run = ["frame_diff", "chist_diff", "combined", "dl_only"]
+        methods_to_run = ["colorhist", "triplet", "running_mean", "combined", "dl_only"]
     else:
         methods_to_run = args.method
 

@@ -6,23 +6,27 @@
 set -e  # Exit on any error
 
 # Default values
-RESULTS_FOLDER="${1:-./results_diffs/humbs/}"
-OUTPUT_FOLDER="${2:-./precision_recall_results/}"
+RESULTS_FOLDER="${1:-./results/hummingbird/}"
+OUTPUT_FOLDER="${2:-./results/hummingbird/precision_recall_results/}"
 BUFFER="${3:-1}"
 
 # Create output folder if it doesn't exist
 mkdir -p "$OUTPUT_FOLDER"
 
 # List of FH videos (extracted from your data folder)
-VIDEOS=(
-    "FH102_02"
-    "FH103_01"
-    "FH303_01"
-    "FH402_01"
-    "FH509_01"
-    "FH706_01"
-    "FH803_01"
-)
+# Automatically detect all FH*.avi videos in the data folder
+VIDEOS=()
+while IFS= read -r -d '' video_path; do
+    # Extract just the basename without .avi extension
+    video_name=$(basename "$video_path" .avi)
+    VIDEOS+=("$video_name")
+done < <(find ./data -name "FH*.avi" -type f -print0 | sort -z)
+
+echo "Found ${#VIDEOS[@]} FH videos:"
+for video in "${VIDEOS[@]}"; do
+    echo "  - $video"
+done
+echo ""
 
 echo "Starting precision/recall computation for ${#VIDEOS[@]} FH videos..."
 echo "Results folder: $RESULTS_FOLDER"
@@ -41,9 +45,9 @@ for video in "${VIDEOS[@]}"; do
     echo "Processing video: $video"
     echo "--------------------------------"
     
-    # Run the precision/recall computation
+    # Run the precision/recall computation # combined dl_only 
     if python compute_precision_recall.py "$video" \
-        --method frame_diff chist_diff  \
+        --method colorhist triplet running_mean  \
         --buffer "$BUFFER" \
         --output "$OUTPUT_FOLDER" \
         --plot \

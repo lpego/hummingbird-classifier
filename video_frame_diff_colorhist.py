@@ -259,6 +259,7 @@ def main(
     bins=8,
     threshold=None,
     visualize=False,
+    verbose=False,
     output_folder=".",
 ):
     # Extract video name for config file
@@ -299,13 +300,20 @@ def main(
     with open(config_filename, "w") as f:
         yaml.dump(config, f, default_flow_style=False, indent=2)
 
-    print(f"Configuration saved to: {config_filename}")
+    if verbose:
+        print(f"Configuration saved to: {config_filename}")
 
     decoder = VideoDecoder(video_path)
     num_frames = len(decoder)
 
     if threshold is None:
         threshold = bins * 3  # Default threshold based on bins and channels
+
+    if verbose:
+        print(
+            f"Processing {num_frames} frames with patch_size: {patch_size}, bins: {bins}"
+        )
+        print(f"Using {'JIT optimizations' if NUMBA_AVAILABLE else 'NumPy fallback'}")
 
     # Use deque for O(1) append/popleft operations instead of list
     frame_buffer = deque(maxlen=3)
@@ -329,7 +337,9 @@ def main(
 
     # Main processing loop with all optimizations
     for idx in tqdm(
-        range(frame_skip, num_frames - frame_skip), desc="Processing frames"
+        range(frame_skip, num_frames - frame_skip),
+        desc="Processing frames",
+        disable=not verbose,
     ):
         # Only load the next frame if needed
         if idx + frame_skip < num_frames:
@@ -376,7 +386,9 @@ def main(
     # Create DataFrame directly from list of dicts (more efficient)
     df_std = pd.DataFrame(results)
     df_std.index.name = "frame_idx"
-    print(df_std.head())
+    if verbose:
+        print(f"Processing complete. Results shape: {df_std.shape}")
+        print(df_std.head())
     return df_std
 
 
@@ -407,16 +419,28 @@ if __name__ == "__main__":
         default=[0, 0, 1280, 700],
         help="Crop box as x y w h (default: 0 0 1280 700)",
     )
+    parser.add_argument(
+        "--frame-skip",
+        type=int,
+        default=1,
+        help="Frame skip interval for triplet analysis (default: 1)",
+    )
+    parser.add_argument(
+        "--verbose",
+        action="store_true",
+        help="Enable verbose output with detailed progress information",
+    )
     args = parser.parse_args()
 
     # Create output folder path
     outfolder = Path(args.output_folder)
 
     crop_box = args.crop_box
-    frame_skip = 3
+    frame_skip = args.frame_skip
     patch_size = (32, 32)
     bins = 8
     visualize = args.visualize
+    verbose = args.verbose
 
     test_size = (
         False  # Set to True to visualize the first frame and crop box and then exit
@@ -430,15 +454,18 @@ if __name__ == "__main__":
         video_dir = "data/"
         video_files = sorted([str(f) for f in Path(video_dir).rglob("FH*.avi")])
 
-    print(f"Found {len(video_files)} videos in {video_dir}")
-    print(f"Output folder: {outfolder}")
+    if verbose:
+        print(f"Found {len(video_files)} videos in {video_dir}")
+        print(f"Output folder: {outfolder}")
 
     # Loop over the list of videos
     for video_path in video_files[:]:
-        print(f"Processing video: {video_path}")
+        if verbose:
+            print(f"Processing video: {video_path}")
 
         if crop_box is None:
-            print("Crop box is not defined. Please manually draw a bounding box.")
+            if verbose:
+                print("Crop box is not defined. Please manually draw a bounding box.")
 
             # Load the first frame of the first video to define the crop box
             decoder = VideoDecoder(video_path)
@@ -462,7 +489,8 @@ if __name__ == "__main__":
                 int(crop_box[2]),
                 int(crop_box[3]),
             )
-            print(f"Crop box defined as: {crop_box}")
+            if verbose:
+                print(f"Crop box defined as: {crop_box}")
 
         if test_size:
             # Load the first frame of the first video to define the crop box
@@ -496,6 +524,7 @@ if __name__ == "__main__":
             patch_size=patch_size,
             bins=bins,
             visualize=visualize,
+            verbose=verbose,
             output_folder=str(outfolder),
         )
 
@@ -507,4 +536,5 @@ if __name__ == "__main__":
             fname,
             index=False,
         )
-        print(f"Results saved to {fname}")
+        if verbose:
+            print(f"Results saved to {fname}")

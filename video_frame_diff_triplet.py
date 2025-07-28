@@ -162,7 +162,7 @@ def visualize_rgb_difference(
 
 
 def process_frame_triplets_optimized(
-    decoder, frame_skips, crop_box, num_frames, visualize=False
+    decoder, frame_skips, crop_box, num_frames, visualize=False, verbose=False
 ):
     """
     Optimized core function to process frame triplets for difference computation.
@@ -173,6 +173,7 @@ def process_frame_triplets_optimized(
         crop_box: Crop box coordinates (x, y, w, h)
         num_frames: Total number of frames
         visualize: Whether to show visualizations
+        verbose: Whether to print detailed progress information
 
     Returns:
         Dictionary mapping frame indices to computed statistics
@@ -219,8 +220,12 @@ def process_frame_triplets_optimized(
             diff_sum = np.sum(diff_rgb, axis=2)
             return np.std(diff_sum)
 
+    if verbose:
+        print(f"Starting triplet analysis with frame cache limit: {cache_size_limit}")
+        print(f"JIT optimization available: {NUMBA_AVAILABLE}")
+
     # Main processing loop with real-time progress
-    for idx in tqdm(range(num_frames), desc="Triplet analysis"):
+    for idx in tqdm(range(num_frames), desc="Triplet analysis", disable=not verbose):
         frame_results = {"center_idx": idx}
 
         # Process all frame skips for current center frame
@@ -260,17 +265,30 @@ def process_frame_triplets_optimized(
                         )
 
                 except Exception as e:
-                    print(f"Error processing frame triplet {idx1}-{idx2}-{idx3}: {e}")
+                    if verbose:
+                        print(
+                            f"Error processing frame triplet {idx1}-{idx2}-{idx3}: {e}"
+                        )
                     frame_results[f"std_diff_rgb_{fs}"] = np.nan
             else:
                 frame_results[f"std_diff_rgb_{fs}"] = np.nan
 
         results[idx] = frame_results
 
+    if verbose:
+        print(f"Triplet analysis complete. Processed {len(results)} frames.")
+
     return results
 
 
-def main(video_path, frame_skip=1, crop_box=None, visualize=False, output_folder="."):
+def main(
+    video_path,
+    frame_skip=1,
+    crop_box=None,
+    visualize=False,
+    verbose=False,
+    output_folder=".",
+):
     import pandas as pd
 
     # Extract video name for config file
@@ -306,7 +324,8 @@ def main(video_path, frame_skip=1, crop_box=None, visualize=False, output_folder
     with open(config_filename, "w") as f:
         yaml.dump(config, f, default_flow_style=False, indent=2)
 
-    print(f"Configuration saved to: {config_filename}")
+    if verbose:
+        print(f"Configuration saved to: {config_filename}")
 
     decoder = VideoDecoder(video_path)
     num_frames = len(decoder)
@@ -316,15 +335,17 @@ def main(video_path, frame_skip=1, crop_box=None, visualize=False, output_folder
     else:
         frame_skips = list(frame_skip)
 
-    print(f"Processing {num_frames} frames with frame_skips: {frame_skips}")
+    if verbose:
+        print(f"Processing {num_frames} frames with frame_skips: {frame_skips}")
 
     # Initialize results dictionary
     results_dict = {idx: {"center_idx": idx} for idx in range(num_frames)}
 
     # TRIPLET FRAME ANALYSIS
-    print("Computing triplet frame differences...")
+    if verbose:
+        print("Computing triplet frame differences...")
     triplet_results = process_frame_triplets_optimized(
-        decoder, frame_skips, crop_box, num_frames, visualize=visualize
+        decoder, frame_skips, crop_box, num_frames, visualize=visualize, verbose=verbose
     )
 
     # Update results with triplet analysis
@@ -338,8 +359,9 @@ def main(video_path, frame_skip=1, crop_box=None, visualize=False, output_folder
         .reset_index(drop=True)
     )
     df_std.index.name = "frame_idx"
-    print(f"\nProcessing complete. Results shape: {df_std.shape}")
-    print(df_std.head())
+    if verbose:
+        print(f"\nProcessing complete. Results shape: {df_std.shape}")
+        print(df_std.head())
     return df_std
 
 
@@ -374,6 +396,11 @@ if __name__ == "__main__":
         default=1,
         help="Frame skip value for triplet analysis (default: 1)",
     )
+    parser.add_argument(
+        "--verbose",
+        action="store_true",
+        help="Enable verbose output with detailed progress information",
+    )
 
     args = parser.parse_args()
 
@@ -381,11 +408,13 @@ if __name__ == "__main__":
     crop_box = tuple(args.crop_box)
     frame_skip = args.frame_skip
     visualize = args.visualize
+    verbose = args.verbose
     output_folder = args.output_folder
 
-    print(f"Output folder: {output_folder}")
-    print(f"Crop box: {crop_box}")
-    print(f"Frame skip: {frame_skip}")
+    if verbose:
+        print(f"Output folder: {output_folder}")
+        print(f"Crop box: {crop_box}")
+        print(f"Frame skip: {frame_skip}")
 
     test_size = (
         False  # Set to True to visualize the first frame and crop box and then exit
@@ -399,14 +428,17 @@ if __name__ == "__main__":
         video_dir = "data/"
         video_files = sorted([str(f) for f in Path(video_dir).rglob("FH*.avi")])
 
-    print(f"Found {len(video_files)} videos in {video_dir}")
+    if verbose:
+        print(f"Found {len(video_files)} videos in {video_dir}")
 
     # Loop over the list of videos
     for video_path in video_files[:]:
-        print(f"Processing video: {video_path}")
+        if verbose:
+            print(f"Processing video: {video_path}")
 
         if crop_box is None:
-            print("Crop box is not defined. Please manually draw a bounding box.")
+            if verbose:
+                print("Crop box is not defined. Please manually draw a bounding box.")
 
             # Load the first frame of the first video to define the crop box
             decoder = VideoDecoder(video_path)
@@ -427,13 +459,15 @@ if __name__ == "__main__":
                 int(crop_box[2]),
                 int(crop_box[3]),
             )
-            print(f"Crop box defined as: {crop_box}")
+            if verbose:
+                print(f"Crop box defined as: {crop_box}")
 
         df_change = main(
             video_path,
             frame_skip=frame_skip,
             crop_box=crop_box,
             visualize=visualize,
+            verbose=verbose,
             output_folder=output_folder,
         )
 
@@ -443,4 +477,5 @@ if __name__ == "__main__":
             output_path / f"{video_path.split('/')[-1].split('.')[0]}_triplet_diff.csv"
         )
         df_change.to_csv(fname, index=False)
-        print(f"Results saved to {fname}")
+        if verbose:
+            print(f"Results saved to {fname}")

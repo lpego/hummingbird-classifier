@@ -12,7 +12,7 @@
 # Options:
 #   -o, --output-dir DIR     Output directory for results (default: results_all_methods)
 #   -c, --crop-box X Y W H   Crop box coordinates (default: 0 0 1280 700)
-#   -f, --frame-skip N       Frame skip for triplet analysis (default: 1)
+#   -f, --frame-skip N       Frame skip for histogram and triplet analysis (default: 1)
 #   -r, --running-mean N     Buffer size for running mean (default: 20)
 #   -v, --visualize          Enable visualization
 #   -h, --help              Show this help message
@@ -65,10 +65,10 @@ USAGE:
 OPTIONS:
     -o, --output-dir DIR     Output directory for results (default: results_all_methods)
     -c, --crop-box X Y W H   Crop box coordinates (default: 0 0 1280 700)
-    -f, --frame-skip N       Frame skip for triplet analysis (default: 1)
+    -f, --frame-skip N       Frame skip for histogram and triplet analysis (default: 1)
     -r, --running-mean N     Buffer size for running mean (default: 20)
     -v, --visualize          Enable visualization
-    -h, --help              Show this help message
+    -h, --help               Show this help message
 
 METHODS:
     1. Color Histogram Differences - Compares color histograms between frames
@@ -199,7 +199,7 @@ echo ""
 # 1. Color Histogram Differences
 echo "📊 METHOD 1: COLOR HISTOGRAM DIFFERENCES"
 echo "========================================"
-if ! run_analysis "Color Histogram Analysis" "$CHIST_SCRIPT" "$CHIST_DIR" ""; then
+if ! run_analysis "Color Histogram Analysis" "$CHIST_SCRIPT" "$CHIST_DIR" "--frame-skip $FRAME_SKIP"; then
     OVERALL_SUCCESS=false
 fi
 echo ""

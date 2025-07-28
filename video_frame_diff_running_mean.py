@@ -153,7 +153,7 @@ def visualize_running_mean_difference(
 
 
 def process_running_mean_optimized(
-    decoder, num_frames, crop_box, running_mean_N, visualize=False
+    decoder, num_frames, crop_box, running_mean_N, visualize=False, verbose=False
 ):
     """
     Highly optimized running mean computation with JIT and incremental averaging.
@@ -179,7 +179,11 @@ def process_running_mean_optimized(
     buffer_pos = 0
     buffer_full = False
 
-    for idx in tqdm(range(num_frames), desc="Running mean background subtraction"):
+    for idx in tqdm(
+        range(num_frames),
+        desc="Running mean background subtraction",
+        disable=not verbose,
+    ):
         # Load and preprocess frame
         raw_frame = decoder[idx].permute(1, 2, 0).cpu().numpy()
         pframe = preprocess_frame(raw_frame, crop_box=crop_box)
@@ -197,9 +201,11 @@ def process_running_mean_optimized(
                     (running_mean_N, frame_size), dtype=np.float64
                 )
                 buffer_sum = np.zeros(frame_size, dtype=np.float64)
-                print(f"Using JIT optimization for frames of size {frame_size}")
+                if verbose:
+                    print(f"Using JIT optimization for frames of size {frame_size}")
             else:
-                print(f"Using NumPy fallback for frames of size {frame_size}")
+                if verbose:
+                    print(f"Using NumPy fallback for frames of size {frame_size}")
 
         # Compute running mean difference
         if len(running_buffer) > 0:
@@ -284,11 +290,19 @@ def process_running_mean_optimized(
         # Update standard buffer (for size tracking and fallback)
         running_buffer.append(pframe)
 
+    if verbose:
+        print(f"Running mean analysis complete. Processed {len(results)} frames.")
+
     return results
 
 
 def main(
-    video_path, running_mean_N=20, crop_box=None, visualize=False, output_folder="."
+    video_path,
+    running_mean_N=20,
+    crop_box=None,
+    visualize=False,
+    verbose=False,
+    output_folder=".",
 ):
     import pandas as pd
 
@@ -324,22 +338,30 @@ def main(
     with open(config_filename, "w") as f:
         yaml.dump(config, f, default_flow_style=False, indent=2)
 
-    print(f"Configuration saved to: {config_filename}")
+    if verbose:
+        print(f"Configuration saved to: {config_filename}")
 
     decoder = VideoDecoder(video_path)
     num_frames = len(decoder)
 
-    print(
-        f"Processing {num_frames} frames with running mean buffer size: {running_mean_N}"
-    )
+    if verbose:
+        print(
+            f"Processing {num_frames} frames with running mean buffer size: {running_mean_N}"
+        )
 
     # Initialize results dictionary
     results_dict = {idx: {"center_idx": idx} for idx in range(num_frames)}
 
     # RUNNING MEAN BACKGROUND SUBTRACTION
-    print("Computing running mean background subtraction...")
+    if verbose:
+        print("Computing running mean background subtraction...")
     running_mean_results = process_running_mean_optimized(
-        decoder, num_frames, crop_box, running_mean_N, visualize=visualize
+        decoder,
+        num_frames,
+        crop_box,
+        running_mean_N,
+        visualize=visualize,
+        verbose=verbose,
     )
 
     # Update results with running mean analysis
@@ -353,8 +375,9 @@ def main(
         .reset_index(drop=True)
     )
     df_std.index.name = "frame_idx"
-    print(f"\nProcessing complete. Results shape: {df_std.shape}")
-    print(df_std.head())
+    if verbose:
+        print(f"\nProcessing complete. Results shape: {df_std.shape}")
+        print(df_std.head())
     return df_std
 
 
@@ -389,6 +412,11 @@ if __name__ == "__main__":
         default=20,
         help="Buffer size for running mean analysis (default: 20)",
     )
+    parser.add_argument(
+        "--verbose",
+        action="store_true",
+        help="Enable verbose output with detailed progress information",
+    )
 
     args = parser.parse_args()
 
@@ -396,11 +424,13 @@ if __name__ == "__main__":
     crop_box = tuple(args.crop_box)
     running_mean_N = args.running_mean_N
     visualize = args.visualize
+    verbose = args.verbose
     output_folder = args.output_folder
 
-    print(f"Output folder: {output_folder}")
-    print(f"Crop box: {crop_box}")
-    print(f"Running mean buffer size: {running_mean_N}")
+    if verbose:
+        print(f"Output folder: {output_folder}")
+        print(f"Crop box: {crop_box}")
+        print(f"Running mean buffer size: {running_mean_N}")
 
     test_size = (
         False  # Set to True to visualize the first frame and crop box and then exit
@@ -414,14 +444,17 @@ if __name__ == "__main__":
         video_dir = "data/"
         video_files = sorted([str(f) for f in Path(video_dir).rglob("FH*.avi")])
 
-    print(f"Found {len(video_files)} videos in {video_dir}")
+    if verbose:
+        print(f"Found {len(video_files)} videos in {video_dir}")
 
     # Loop over the list of videos
     for video_path in video_files[:]:
-        print(f"Processing video: {video_path}")
+        if verbose:
+            print(f"Processing video: {video_path}")
 
         if crop_box is None:
-            print("Crop box is not defined. Please manually draw a bounding box.")
+            if verbose:
+                print("Crop box is not defined. Please manually draw a bounding box.")
 
             # Load the first frame of the first video to define the crop box
             decoder = VideoDecoder(video_path)
@@ -442,7 +475,8 @@ if __name__ == "__main__":
                 int(crop_box[2]),
                 int(crop_box[3]),
             )
-            print(f"Crop box defined as: {crop_box}")
+            if verbose:
+                print(f"Crop box defined as: {crop_box}")
 
         if test_size:
             # ...existing code...
@@ -453,6 +487,7 @@ if __name__ == "__main__":
             running_mean_N=running_mean_N,
             crop_box=crop_box,
             visualize=visualize,
+            verbose=verbose,
             output_folder=output_folder,
         )
 
@@ -463,4 +498,5 @@ if __name__ == "__main__":
             / f"{video_path.split('/')[-1].split('.')[0]}_running_mean_diff.csv"
         )
         df_change.to_csv(fname, index=False)
-        print(f"Results saved to {fname}")
+        if verbose:
+            print(f"Results saved to {fname}")
