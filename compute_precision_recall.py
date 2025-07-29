@@ -2,36 +2,67 @@
 """
 compute_precision_recall.py
 
-Script to compute precision and recall for a given video using different numbers of retrieval frames.
-Based on the logic from the plotting notebooks for frame difference and histogram difference analysis.
-By default, computes results for both methods to enable comparison.
+Compute precision and recall for video anomaly detection for:
+- Color Histogram
+- Triplet Frame Analysis
+- Running Mean
+- Combined Scores
+- Deep Learning Only
+
+Ground truth is loaded from Weinstein2018MEE_ground_truth.csv.
+
+Plots are from copilot :D
 """
 
+import os
 import argparse
-import pandas as pd
-import numpy as np
 import yaml
 
-# from pathlib import Path
-import os
+from pathlib import Path
+import pandas as pd
+import numpy as np
+
 import matplotlib.pyplot as plt
 
+# could be made argument but it's mostly for debugging, not important
 VERBOSE = False
 
 
-def load_ground_truth(video_name, gt_folder="./data"):
-    """Load ground truth data for the specified video."""
-    gt_path = os.path.join(gt_folder, "Weinstein2018MEE_ground_truth.csv")
-    if not os.path.exists(gt_path):
-        raise FileNotFoundError(f"Ground truth file not found: {gt_path}")
+def load_ground_truth(video_name, gt_file="./data/Weinstein2018MEE_ground_truth.csv"):
+    """
+    Load ground truth data for the specified video. If the CSV changes, the logic here fails
+    Gotta double check:
+        - Column names
+        - Video names
+        - Frame numbers
 
-    gt = pd.read_csv(gt_path)
+    Args:
+        video_name: Name of the video (e.g., 'FH102_02')
+        gt_folder: Folder containing the ground truth data (default: './data')
+    Returns:
+        gt_video: DataFrame with ground truth for the specified video
+        positives: DataFrame with positive ground truth frames
+        negatives: DataFrame with negative ground truth frames
+    """
+
+    # first check if files exists
+    gt_file = os.path.abspath(gt_file)
+    if not os.path.exists(gt_file):
+        raise FileNotFoundError(f"Ground truth file not found: {gt_file}")
+
+    gt = pd.read_csv(gt_file)
+
+    # extract video GT
     gt_video = gt[gt["Video"] == video_name]
     gt_video = gt_video.set_index("Frame", drop=False)
+
+    # shift frame index to 0-based indexing
+    gt_video.index = gt_video.index - 1
 
     # Deduplicate the index of ground truth
     gt_video = gt_video[~gt_video.index.duplicated(keep="first")]
 
+    # problably unnecessary but was handy
     positives = gt_video[gt_video["Truth"].str.lower() == "positive"]
     negatives = gt_video[gt_video["Truth"].str.lower() == "negative"]
 
@@ -41,37 +72,48 @@ def load_ground_truth(video_name, gt_folder="./data"):
 def load_diff_data(video_name, method="colorhist", results_folder="."):
     """
     Load processed difference data for the specified video.
-
+    If filenames change, the logic here fails.
+    Filenames are hardcoded, but could be passed as args but I'm too lazy.
+    Not sure configs are necessary, but cheap to read in case.
     Args:
         video_name: Name of the video (e.g., 'FH102_02')
         method: 'colorhist', 'triplet', 'running_mean'
         results_folder: Folder containing the processed results
+
+    Returns:
+        df_change: DataFrame with processed difference data
+        config: Configuration dictionary loaded from YAML file (if exists)
+
     """
+
+    # First create filenames to read, then read
     if method == "colorhist":
-        # New structure from run_all_frame_analysis.sh: results_folder/color_histogram/
         csv_file = os.path.join(
             results_folder,
-            "color_histogram",
+            "color_histogram",  # this is a subfolder, should be consistent
             f"{video_name}_processed_chist_diff.csv",
         )
+
+        # not sure is needed
         config_file = os.path.join(
             results_folder, "color_histogram", f"{video_name}_chist_config.yaml"
         )
+
     elif method == "triplet":
-        # New structure from run_all_frame_analysis.sh: results_folder/triplet_analysis/
         csv_file = os.path.join(
             results_folder,
-            "triplet_analysis",
+            "triplet_analysis",  # this is a subfolder, should be consistent
             f"{video_name}_triplet_diff.csv",
         )
         config_file = os.path.join(
-            results_folder, "triplet_analysis", f"{video_name}_triplet_config.yaml"
+            results_folder,
+            "triplet_analysis",  # this is a subfolder, should be consistent
+            f"{video_name}_triplet_config.yaml",
         )
     elif method == "running_mean":
-        # New structure from run_all_frame_analysis.sh: results_folder/running_mean/
         csv_file = os.path.join(
             results_folder,
-            "running_mean",
+            "running_mean",  # this is a subfolder, should be consistent
             f"{video_name}_running_mean_diff.csv",
         )
         config_file = os.path.join(
@@ -97,12 +139,13 @@ def load_diff_data(video_name, method="colorhist", results_folder="."):
 
 def load_combined_data(video_name, results_folder="."):
     """
-    Load combined scores data for the specified video.
+    Load combined scores data for the specified video, if pre-existing combined data CSV and dl-only CSV exists.
 
     Args:
         video_name: Name of the video (e.g., 'FH102_02')
         results_folder: Folder containing the combined results
     """
+
     csv_file = os.path.join(results_folder, f"{video_name}_combined_scores.csv")
 
     if not os.path.exists(csv_file):
@@ -118,7 +161,21 @@ def load_combined_data(video_name, results_folder="."):
 
 
 def compute_aggregated_diff(df_change, method="colorhist"):
-    """Compute aggregated difference score based on the method."""
+    """
+    Compute aggregated difference score based on the method, in case a script returns multiple scores.
+    Potentially, this should not be used and first go through the score combination script.
+    Right now is basically for renaming columns.
+
+    Args:
+        df_change: dataframe containing anomaly
+        method: method name for defining cols to rename ('colorhist', 'triplet', 'running_mean')
+
+    Returns:
+        df_change: DataFrame with aggregated_diff column added
+
+    Raises:
+        ValueError if column name is wrong.
+    """
     if method == "colorhist":
         # For color histogram analysis: use the stdev_magn_diff_chist column directly
         df_change["aggregated_diff"] = df_change["stdev_magn_diff_chist"]
@@ -163,7 +220,8 @@ def compute_aggregated_diff(df_change, method="colorhist"):
         # Skip normalization since dl_score is already 0-1 normalized
         return df_change
 
-    # 0-1 normalization (skip for combined and dl_only methods)
+    # 0-1 normalization
+    # this might be delicate -- but as we assess by sorting and not by thresholding, it should be fine
     min_val = df_change["aggregated_diff"].min()
     max_val = df_change["aggregated_diff"].max()
     df_change["aggregated_diff"] = (df_change["aggregated_diff"] - min_val) / (
@@ -176,19 +234,32 @@ def compute_aggregated_diff(df_change, method="colorhist"):
 def compute_precision_recall(df_change, positives, k_values, buffer=3):
     """
     Compute precision and recall for different k values.
+    k defines the number of top frames to consider for precision/recall after sorting the score
+    The Score is now in the column "aggregated_diff" and is already normalized to 0-1, _for all the methods_.
 
     Args:
         df_change: DataFrame with aggregated_diff scores
         positives: DataFrame with positive ground truth frames
-        k_values: List of k values to compute precision/recall for
-        buffer: Buffer around ground truth frames for matching
+        k_values: integer or list of integers. List of k values to compute precision/recall for
+        buffer: int. Buffer around ground truth frames for matching (e.g. 1 means exact frame-to-frame match, 3 means counted as poisitive if prediction is within 3 frames of the ground truth)
+            I did the above as I had the feeling the GT is a bit inconsistent, but I use 1 nonetheless (same for all methods -- pensalises equally)
+
+    Returns:
+        DataFrame with precision and recall for each k value
+
+    Raises:
+        ValueError if k_values is not a list or integer
+
     """
     # Sort frames by aggregated_diff score (descending)
     sorted_scores = df_change.sort_values(by="aggregated_diff", ascending=False)
 
     # Create results DataFrame to store whether each frame is within buffer of positive
+    # this is the way predictionsa are scored. Negatives are just given by the number of frames _not_ matched, for each k value.
+    # Uses logic from instance retrieval evaluation
     results = []
     for frame in sorted_scores.index:
+        # do the matching with the buffer
         is_within_range = any(
             (positives["Frame"] >= frame - buffer)
             & (positives["Frame"] <= frame + buffer)
@@ -201,14 +272,14 @@ def compute_precision_recall(df_change, positives, k_values, buffer=3):
     precision_recall_data = []
 
     for k in k_values:
-        if k > len(results_df):
+        if k > len(results_df):  # stop if k is larger than the number of frames
             continue
 
-        # Precision: fraction of retrieved frames that are relevant (within buffer of positive)
+        # Precision: fraction of retrieved frames that are correct (assuming buffer)
         precision_at_k = results_df[f"within_{buffer}_positive"].iloc[:k].sum() / k
 
-        # Recall: fraction of relevant frames that are retrieved (exact matches)
-        true_positives = results_df["Frame"].iloc[:k].isin(positives["Frame"])
+        # Recall: fraction of positive frames that are retrieved and are within the buffer
+        true_positives = results_df.loc[:, "Frame"].iloc[:k].isin(positives["Frame"])
         recall_at_k = true_positives.sum() / len(positives)
 
         precision_recall_data.append(
@@ -224,12 +295,16 @@ def compute_precision_recall(df_change, positives, k_values, buffer=3):
 
 def create_precision_recall_plots(precision_recall_df, output_folder, video_name):
     """
-    Create and save precision-recall plots for both methods.
+    Create and save precision-recall plots for both methods. Gladly helped by copilot.
 
     Args:
         precision_recall_df: DataFrame with precision and recall data for both methods
         output_folder: Folder to save the plots
         video_name: Name of the video
+
+    Returns:
+        None, saves plots to the specified output folder
+
     """
 
     # Separate data by method
@@ -249,23 +324,24 @@ def create_precision_recall_plots(precision_recall_df, output_folder, video_name
         "dl_only": "v",
     }
 
-    # Calculate random baseline precision (proportion of positive samples)
+    # Calculate random baseline precision (proportion of positive samples).
+    # This ought to be abysmally low, as the dataset is highly imbalanced.
     num_positives = precision_recall_df["num_positives"].iloc[0]
     total_frames = precision_recall_df["total_frames"].iloc[0]
     random_precision = num_positives / total_frames
 
     if VERBOSE:
         print(f"Dataset statistics for {video_name}:")
-        print(f"  Total frames: {total_frames}")
-        print(f"  Positive frames: {num_positives}")
+        print(f"++Total frames: {total_frames}")
+        print(f"++Positive frames: {num_positives}")
         print(
-            f"  Random baseline precision: {random_precision:.4f} ({random_precision*100:.2f}%)"
+            f"++Random baseline precision: {random_precision:.4f} ({random_precision*100:.2f}%)"
         )
 
     # Create comparison plots
     plt.figure(figsize=(16, 10))
     plt.suptitle(
-        f"Precision-Recall Comparison for {video_name}",
+        f"Precision-Recall assessment for {video_name}",
         fontsize=16,
         fontweight="bold",
     )
@@ -299,12 +375,12 @@ def create_precision_recall_plots(precision_recall_df, output_folder, video_name
         x=num_positives,
         color="gray",
         linestyle="--",
-        label=f"Actual Positives ({num_positives})",
+        label=f"GT positives ({num_positives})",
         alpha=0.7,
     )
 
     plt.title(f"Precision @ k")
-    plt.xlabel("Top-k Frames Retrieved")
+    plt.xlabel("Top-k frames retrieved")
     plt.ylabel("Precision")
     plt.legend()
     plt.grid(True, alpha=0.3)
@@ -335,12 +411,12 @@ def create_precision_recall_plots(precision_recall_df, output_folder, video_name
         x=num_positives,
         color="gray",
         linestyle="--",
-        label=f"Actual Positives ({num_positives})",
+        label=f"GT positives ({num_positives})",
         alpha=0.7,
     )
 
     plt.title(f"Recall @ k")
-    plt.xlabel("Top-k Frames Retrieved")
+    plt.xlabel("Top-k frames retrieved")
     plt.ylabel("Recall")
     plt.legend()
     plt.grid(True, alpha=0.3)
@@ -367,7 +443,7 @@ def create_precision_recall_plots(precision_recall_df, output_folder, video_name
             alpha=0.8,
         )
 
-    plt.title(f"Precision-Recall Curves")
+    plt.title(f"Precision-Recall curves")
     plt.xlabel("Recall")
     plt.ylabel("Precision")
     plt.grid(True, alpha=0.3)
@@ -490,9 +566,9 @@ def create_precision_recall_plots(precision_recall_df, output_folder, video_name
                     ),
                 )
 
-    plt.title(f"F1 Score @ k")
-    plt.xlabel("Top-k Frames Retrieved")
-    plt.ylabel("F1 Score")
+    plt.title(f"F1 score @ k")
+    plt.xlabel("Top-k frames retrieved")
+    plt.ylabel("F1 score")
     plt.legend()
     plt.grid(True, alpha=0.3)
     plt.xlim(left=0)
@@ -533,12 +609,12 @@ def create_precision_recall_plots(precision_recall_df, output_folder, video_name
         x=num_positives,
         color="gray",
         linestyle="--",
-        label=f"Actual Positives ({num_positives})",
+        label=f"GT rositives ({num_positives})",
         alpha=0.7,
     )
 
-    plt.title(f"Precision/Recall @ k (Log Scale)")
-    plt.xlabel("Top-k Frames Retrieved (log scale)")
+    plt.title(f"Precision/Recall @ k (log scale)")
+    plt.xlabel("Top-k frames retrieved (log scale)")
     plt.ylabel("Score")
     plt.legend()
     plt.grid(True, alpha=0.3)
@@ -578,10 +654,10 @@ def create_precision_recall_plots(precision_recall_df, output_folder, video_name
         summary_data.append(
             {
                 "Method": method,
-                "Max Precision": method_data["Precision"].max(),
-                "Max Precision k": max_prec_k,
-                "Max Recall": method_data["Recall"].max(),
-                "Max Recall k": max_recall_k,
+                "Max precision": method_data["Precision"].max(),
+                "Max precision k": max_prec_k,
+                "Max recall": method_data["Recall"].max(),
+                "Max recall k": max_recall_k,
                 "Best F1": f1_scores.max(),
                 "Best F1 k": best_f1_k,
                 f"Precision@{kf}": prec_at_kf,
@@ -596,8 +672,8 @@ def create_precision_recall_plots(precision_recall_df, output_folder, video_name
     width = 0.2
 
     metrics = [
-        "Max Precision",
-        "Max Recall",
+        "Max precision",
+        "Max recall",
         "Best F1",
         f"Precision@{kf}",
         f"Recall@{kf}",
@@ -609,8 +685,8 @@ def create_precision_recall_plots(precision_recall_df, output_folder, video_name
 
         # Get corresponding k values
         k_values = [
-            method_row["Max Precision k"],
-            method_row["Max Recall k"],
+            method_row["Max precision k"],
+            method_row["Max recall k"],
             method_row["Best F1 k"],
             50,  # Fixed k=50 for @50 metrics
             50,
