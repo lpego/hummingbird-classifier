@@ -452,7 +452,8 @@ if __name__ == "__main__":
 
     else:
         video_dir = "data/"
-        video_files = sorted([str(f) for f in Path(video_dir).rglob("FH*.avi")])
+        # video_files = sorted([str(f) for f in Path(video_dir).rglob("FH*.avi")])
+        video_files = sorted([str(f) for f in Path(video_dir).rglob("S1_1*.avi")])
 
     if verbose:
         print(f"Found {len(video_files)} videos in {video_dir}")
