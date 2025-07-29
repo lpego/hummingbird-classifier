@@ -18,7 +18,7 @@ import yaml
 import os
 import matplotlib.pyplot as plt
 
-VERBOSE = False
+VERBOSE = True
 
 
 def load_ground_truth(video_name, gt_folder="./data"):
@@ -30,6 +30,9 @@ def load_ground_truth(video_name, gt_folder="./data"):
     gt = pd.read_csv(gt_path)
     gt_video = gt[gt["Video"] == video_name]
     gt_video = gt_video.set_index("Frame", drop=False)
+
+    # shift index to start from 0
+    gt_video.index = gt_video.index - 1
 
     # Deduplicate the index of ground truth
     gt_video = gt_video[~gt_video.index.duplicated(keep="first")]
@@ -956,15 +959,16 @@ def main():
             failed_videos.append(video_name)
 
     # Final summary
-    print(f"\n{'='*80}")
-    print(f"PROCESSING COMPLETE")
-    print(f"{'='*80}")
-    print(
-        f"Successfully processed: {successful_videos}/{len(videos_to_process)} videos"
-    )
+    if VERBOSE:
+        print(f"\n{'='*80}")
+        print(f"PROCESSING COMPLETE")
+        print(f"{'='*80}")
+        print(
+            f"Successfully processed: {successful_videos}/{len(videos_to_process)} videos"
+        )
 
-    if failed_videos:
-        print(f"Failed videos: {failed_videos}")
+        if failed_videos:
+            print(f"Failed videos: {failed_videos}")
 
     if all_combined_results:
         # Save combined results across all videos

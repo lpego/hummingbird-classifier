@@ -56,7 +56,7 @@ def load_ground_truth(video_name, gt_file="./data/Weinstein2018MEE_ground_truth.
     gt_video = gt[gt["Video"] == video_name]
     gt_video = gt_video.set_index("Frame", drop=False)
 
-    # shift frame index to 0-based indexing
+    # shift frame index - 1 to make it 0-based
     gt_video.index = gt_video.index - 1
 
     # Deduplicate the index of ground truth
