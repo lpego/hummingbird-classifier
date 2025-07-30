@@ -93,7 +93,7 @@ def crop_frame(frame, crop_box):
     return frame[y : y + h, x : x + w]
 
 
-def preprocess_frame(frame, reference=None, crop_box=None, blur=True):
+def preprocess_frame(frame, reference=None, crop_box=None, blur=False):
     """Apply normalization, optional histogram matching, blurring, and cropping."""
     frame = normalize_frame(frame)
 

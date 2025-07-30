@@ -52,7 +52,7 @@ for video in "${VIDEOS[@]}"; do
         --output "$OUTPUT_FOLDER" \
         --plot \
         --results-folder "$RESULTS_FOLDER" \
-        --gt-folder "./data/Weinstein2018MEE_ground_truth.csv"; then
+        --gt-folder "./data/cleaned_ground_truth.csv"; then
         
         echo "++ Successfully processed $video"
         ((SUCCESS_COUNT++))

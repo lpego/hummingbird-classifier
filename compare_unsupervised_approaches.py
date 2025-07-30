@@ -21,22 +21,41 @@ import matplotlib.pyplot as plt
 VERBOSE = True
 
 
-def load_ground_truth(video_name, gt_folder="./data"):
-    """Load ground truth data for the specified video."""
-    gt_path = os.path.join(gt_folder, "Weinstein2018MEE_ground_truth.csv")
-    if not os.path.exists(gt_path):
-        raise FileNotFoundError(f"Ground truth file not found: {gt_path}")
+def load_ground_truth(video_name, gt_file="./data/Weinstein2018MEE_ground_truth.csv"):
+    """
+    Load ground truth data for the specified video. If the CSV changes, the logic here fails
+    Gotta double check:
+        - Column names
+        - Video names
+        - Frame numbers
 
-    gt = pd.read_csv(gt_path)
+    Args:
+        video_name: Name of the video (e.g., 'FH102_02')
+        gt_folder: Folder containing the ground truth data (default: './data')
+    Returns:
+        gt_video: DataFrame with ground truth for the specified video
+        positives: DataFrame with positive ground truth frames
+        negatives: DataFrame with negative ground truth frames
+    """
+
+    # first check if files exists
+    gt_file = os.path.abspath(gt_file)
+    if not os.path.exists(gt_file):
+        raise FileNotFoundError(f"Ground truth file not found: {gt_file}")
+
+    gt = pd.read_csv(gt_file)
+
+    # extract video GT
     gt_video = gt[gt["Video"] == video_name]
     gt_video = gt_video.set_index("Frame", drop=False)
 
-    # shift index to start from 0
+    # shift frame index - 1 to make it 0-based
     gt_video.index = gt_video.index - 1
 
     # Deduplicate the index of ground truth
     gt_video = gt_video[~gt_video.index.duplicated(keep="first")]
 
+    # problably unnecessary but was handy
     positives = gt_video[gt_video["Truth"].str.lower() == "positive"]
     negatives = gt_video[gt_video["Truth"].str.lower() == "negative"]
 
@@ -51,9 +70,15 @@ def load_unsupervised_data(
 
     Args:
         video_name: Name of the video (e.g., 'FH102_02')
-        method: 'colorhist', 'triplet', 'running_mean', 'combined'
+        method: 'colorhist', 'triplet', 'running_mean', 'combined', 'wasserstein', 'chi_square'
         results_folder: Base folder containing the analysis results
+
+        Returns:
+            df_change: DataFrame with processed change scores
+            config: Configuration dictionary loaded from YAML file (if exists)
     """
+
+    # First create filenames to read, then read
     if method == "colorhist":
         # Load from color_histogram subfolder
         csv_file = os.path.join(
@@ -84,6 +109,26 @@ def load_unsupervised_data(
         config_file = os.path.join(
             results_folder, "running_mean", f"{video_name}_running_mean_config.yaml"
         )
+    elif method == "wasserstein":
+        # Load from wasserstein subfolder
+        csv_file = os.path.join(
+            results_folder,
+            "wasserstein",
+            f"{video_name}_wasserstein_diff.csv",
+        )
+        config_file = os.path.join(
+            results_folder, "wasserstein", f"{video_name}_wasserstein_config.yaml"
+        )
+    elif method == "chi_square":
+        # Load from chi_square subfolder
+        csv_file = os.path.join(
+            results_folder,
+            "chi_square",
+            f"{video_name}_chi_square_diff.csv",
+        )
+        config_file = os.path.join(
+            results_folder, "chi_square", f"{video_name}_chi_square_config.yaml"
+        )
     elif method == "combined":
         # Load from combined subfolder
         csv_file = os.path.join(
@@ -94,18 +139,15 @@ def load_unsupervised_data(
         config_file = None  # No config for combined scores
     else:
         raise ValueError(
-            "method must be 'colorhist', 'triplet', 'running_mean', or 'combined'"
+            "method must be 'colorhist', 'triplet', 'running_mean', 'wasserstein', 'chi_square', or 'combined'"
         )
 
     if not os.path.exists(csv_file):
         raise FileNotFoundError(f"Processed data file not found: {csv_file}")
 
     df_change = pd.read_csv(csv_file)
-
-    # Set center_idx as index
-    if "center_idx" in df_change.columns:
-        df_change.index = df_change["center_idx"]
-        df_change = df_change.drop(columns=["center_idx"])
+    df_change.index = df_change["center_idx"]
+    df_change = df_change.drop(columns=["center_idx"])
 
     config = None
     if config_file and os.path.exists(config_file):
@@ -116,7 +158,22 @@ def load_unsupervised_data(
 
 
 def compute_aggregated_diff(df_change, method="colorhist"):
-    """Compute aggregated difference score based on the method."""
+    """
+    Compute aggregated difference score based on the method, in case a script returns multiple scores.
+    Potentially, this should not be used and first go through the score combination script.
+    Right now is basically for renaming columns.
+
+    Args:
+        df_change: dataframe containing anomaly
+        method: method name for defining cols to rename ('colorhist', 'triplet', 'running_mean', 'wasserstein', 'chi_square')
+
+    Returns:
+        df_change: DataFrame with aggregated_diff column added
+
+    Raises:
+        ValueError if column name is wrong.
+    """
+
     if method == "colorhist":
         # For color histogram analysis: use the stdev_magn_diff_chist column directly
         if "stdev_magn_diff_chist" in df_change.columns:
@@ -148,6 +205,28 @@ def compute_aggregated_diff(df_change, method="colorhist"):
                 "Running mean analysis data missing std_diff_running_mean_ columns"
             )
 
+    elif method == "wasserstein":
+        # For Wasserstein distance analysis: use the wasserstein_distance column directly
+        if "wasserstein_distance" in df_change.columns:
+            df_change["aggregated_diff"] = df_change["wasserstein_distance"]
+        elif "stdev_magn_diff_wasserstein" in df_change.columns:
+            df_change["aggregated_diff"] = df_change["stdev_magn_diff_wasserstein"]
+        else:
+            raise ValueError(
+                "Wasserstein analysis data missing 'wasserstein_distance' or 'stdev_magn_diff_wasserstein' column"
+            )
+
+    elif method == "chi_square":
+        # For chi-square analysis: use the chi_square_statistic column directly
+        if "chi_square_statistic" in df_change.columns:
+            df_change["aggregated_diff"] = df_change["chi_square_statistic"]
+        elif "stdev_magn_diff_chi_square" in df_change.columns:
+            df_change["aggregated_diff"] = df_change["stdev_magn_diff_chi_square"]
+        else:
+            raise ValueError(
+                "Chi-square analysis data missing 'chi_square_statistic' or 'stdev_magn_diff_chi_square' column"
+            )
+
     elif method == "combined":
         # For combined scores: use the combined_score column directly (already normalized)
         if "combined_score" in df_change.columns:
@@ -173,12 +252,18 @@ def compute_aggregated_diff(df_change, method="colorhist"):
 def compute_precision_recall(df_change, positives, k_values, buffer=1):
     """
     Compute precision and recall for different k values.
+    k defines the number of top frames to consider for precision/recall after sorting the score
+    The Score is now in the column "aggregated_diff" and is already normalized to 0-1, _for all the methods_.
 
     Args:
         df_change: DataFrame with aggregated_diff scores
         positives: DataFrame with positive ground truth frames
-        k_values: List of k values to compute precision/recall for
-        buffer: Buffer around ground truth frames for matching
+        k_values: integer or list of integers. List of k values to compute precision/recall for
+        buffer: int. Buffer around ground truth frames for matching (e.g. 1 means exact frame-to-frame match, 3 means counted as poisitive if prediction is within 3 frames of the ground truth)
+            I did the above as I had the feeling the GT is a bit inconsistent, but I use 1 nonetheless (same for all methods -- pensalises equally)
+
+    Returns:
+        DataFrame with precision and recall for each k value
     """
     # Sort frames by aggregated_diff score (descending)
     sorted_scores = df_change.sort_values(by="aggregated_diff", ascending=False)
@@ -219,9 +304,7 @@ def compute_precision_recall(df_change, positives, k_values, buffer=1):
     return pd.DataFrame(precision_recall_data)
 
 
-def create_unsupervised_comparison_plots(
-    precision_recall_df, output_folder, video_name
-):
+def create_precision_recall_plots(precision_recall_df, output_folder, video_name):
     """
     Create and save precision-recall comparison plots for unsupervised approaches.
 
@@ -238,12 +321,16 @@ def create_unsupervised_comparison_plots(
         "triplet": "blue",
         "running_mean": "purple",
         "combined": "green",
+        "wasserstein": "orange",
+        "chi_square": "brown",
     }
     markers = {
         "colorhist": "s",
         "triplet": "o",
         "running_mean": "^",
         "combined": "d",
+        "wasserstein": "v",
+        "chi_square": "x",
     }
 
     # Calculate random baseline precision (proportion of positive samples)
@@ -262,7 +349,7 @@ def create_unsupervised_comparison_plots(
     # Create comparison plots with adjusted layout for bottom legend
     fig = plt.figure(figsize=(16, 12))  # Increased height for legend space
     plt.suptitle(
-        f"Unsupervised Approaches Comparison for {video_name}",
+        f"Comparison for {video_name}",
         fontsize=16,
         fontweight="bold",
     )
@@ -622,6 +709,8 @@ def create_unsupervised_comparison_plots(
         "triplet": "Triplet Analysis",
         "running_mean": "Running Mean",
         "combined": "Combined Score",
+        "wasserstein": "Wasserstein",
+        "chi_square": "Chi-Square ",
     }
 
     for method in methods:
@@ -646,7 +735,7 @@ def create_unsupervised_comparison_plots(
         frameon=True,
         fancybox=True,
         shadow=True,
-        title="Approaches",
+        title="",
         title_fontsize=14,
     )
     legend.get_title().set_fontweight("bold")
@@ -830,9 +919,17 @@ def main():
         "--method",
         type=str,
         nargs="+",
-        choices=["colorhist", "triplet", "running_mean", "combined", "all"],
+        choices=[
+            "colorhist",
+            "triplet",
+            "running_mean",
+            "combined",
+            "wasserstein",
+            "chi_square",
+            "all",
+        ],
         default=["all"],
-        help="Method(s) to compare: colorhist, triplet, running_mean, combined, or all (default: all)",
+        help="Method(s) to compare: colorhist, triplet, running_mean, combined, wasserstein, chi_square, or all (default: all)",
     )
     parser.add_argument(
         "--buffer",
@@ -855,7 +952,7 @@ def main():
     parser.add_argument(
         "--gt-folder",
         type=str,
-        default="./data",
+        default="./data/cleaned_ground_truth.csv",
         help="Folder containing the ground truth data (default: ./data)",
     )
     parser.add_argument(
@@ -873,7 +970,14 @@ def main():
 
     # Determine which methods to run
     if "all" in args.method:
-        methods_to_run = ["colorhist", "triplet", "running_mean", "combined"]
+        methods_to_run = [
+            "colorhist",
+            "triplet",
+            "running_mean",
+            # "combined",
+            "wasserstein",
+            "chi_square",
+        ]
     else:
         methods_to_run = args.method
 
@@ -928,7 +1032,7 @@ def main():
             if args.plot:
                 if VERBOSE:
                     print("Creating unsupervised comparison plots...")
-                create_unsupervised_comparison_plots(
+                create_precision_recall_plots(
                     video_results, args.output_folder, video_name
                 )
 

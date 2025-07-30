@@ -142,7 +142,7 @@ def crop_frame(frame, crop_box):
     return frame[y : y + h, x : x + w]
 
 
-def preprocess_frame(frame, reference=None, crop_box=None, blur=True):
+def preprocess_frame(frame, reference=None, crop_box=None, blur=False):
     """Apply normalization, optional standardization, blurring, and cropping."""
     frame = frame.astype(np.float32) / 255.0
     # normalize_frame(frame)
@@ -207,11 +207,105 @@ def compute_patch_histograms_jit_exact(frame_flat, h, w, c, patch_size, bins):
 
 
 @jit(nopython=True, cache=True)
-def compute_histogram_differences_jit(hist1, hist2, hist3):
-    """JIT-compiled function for fast histogram difference computation."""
-    diff1 = np.sqrt(np.sum((hist2 - hist1) ** 2, axis=1))
-    diff2 = np.sqrt(np.sum((hist3 - hist2) ** 2, axis=1))
-    return diff1 + diff2
+def compute_histogram_differences_jit(hist1, hist2, hist3, distance_metric="euclidean"):
+    """
+    JIT-compiled function for fast histogram difference computation.
+
+    Parameters:
+    -----------
+    hist1, hist2, hist3 : numpy.ndarray
+        Histogram arrays for three consecutive frames
+    distance_metric : str
+        Distance metric to use: "euclidean", "wasserstein", or "chi_square"
+
+    Returns:
+    --------
+    numpy.ndarray
+        Combined distance differences between frame pairs
+    """
+    n_patches = hist1.shape[0]
+    n_bins = hist1.shape[1]
+
+    # Ensure consistent float32 data type for all operations
+    diff1 = np.zeros(n_patches, dtype=np.float32)
+    diff2 = np.zeros(n_patches, dtype=np.float32)
+
+    if distance_metric == "euclidean":
+        # Original Euclidean distance (L2 norm)
+        for i in range(n_patches):
+            sum_sq_1 = 0.0
+            sum_sq_2 = 0.0
+            for j in range(n_bins):
+                diff_val_1 = hist2[i, j] - hist1[i, j]
+                diff_val_2 = hist3[i, j] - hist2[i, j]
+                sum_sq_1 += diff_val_1 * diff_val_1
+                sum_sq_2 += diff_val_2 * diff_val_2
+            diff1[i] = np.sqrt(sum_sq_1)
+            diff2[i] = np.sqrt(sum_sq_2)
+
+    elif distance_metric == "wasserstein":
+        # Wasserstein (Earth Mover's) distance - 1D approximation
+        for i in range(n_patches):
+            # Compute cumulative distributions
+            cum1 = 0.0
+            cum2 = 0.0
+            cum3 = 0.0
+            wasserstein_12 = 0.0
+            wasserstein_23 = 0.0
+
+            for j in range(n_bins):
+                cum1 += hist1[i, j]
+                cum2 += hist2[i, j]
+                cum3 += hist3[i, j]
+
+                # Wasserstein distance is the L1 norm of cumulative difference
+                wasserstein_12 += abs(cum2 - cum1)
+                wasserstein_23 += abs(cum3 - cum2)
+
+            diff1[i] = wasserstein_12
+            diff2[i] = wasserstein_23
+
+    elif distance_metric == "chi_square":
+        # Chi-square distance
+        eps = np.float32(1e-10)
+
+        for i in range(n_patches):
+            chi_sq_12 = 0.0
+            chi_sq_23 = 0.0
+
+            for j in range(n_bins):
+                # Chi-square between hist1 and hist2
+                sum_hist_12 = hist1[i, j] + hist2[i, j] + eps
+                diff_val_12 = hist2[i, j] - hist1[i, j]
+                chi_sq_12 += (diff_val_12 * diff_val_12) / sum_hist_12
+
+                # Chi-square between hist2 and hist3
+                sum_hist_23 = hist2[i, j] + hist3[i, j] + eps
+                diff_val_23 = hist3[i, j] - hist2[i, j]
+                chi_sq_23 += (diff_val_23 * diff_val_23) / sum_hist_23
+
+            diff1[i] = np.sqrt(chi_sq_12)
+            diff2[i] = np.sqrt(chi_sq_23)
+
+    else:
+        # Default to Euclidean if unknown metric
+        for i in range(n_patches):
+            sum_sq_1 = 0.0
+            sum_sq_2 = 0.0
+            for j in range(n_bins):
+                diff_val_1 = hist2[i, j] - hist1[i, j]
+                diff_val_2 = hist3[i, j] - hist2[i, j]
+                sum_sq_1 += diff_val_1 * diff_val_1
+                sum_sq_2 += diff_val_2 * diff_val_2
+            diff1[i] = np.sqrt(sum_sq_1)
+            diff2[i] = np.sqrt(sum_sq_2)
+
+    # Ensure the result is also float32
+    result = np.zeros(n_patches, dtype=np.float32)
+    for i in range(n_patches):
+        result[i] = diff1[i] + diff2[i]
+
+    return result
 
 
 def compute_patch_histograms(frame, patch_size=(32, 32), bins=16):
@@ -261,6 +355,7 @@ def main(
     visualize=False,
     verbose=False,
     output_folder=".",
+    distance_metric="euclidean",
 ):
     # Extract video name for config file
     video_name = Path(video_path).stem
@@ -287,6 +382,7 @@ def main(
             },
             "bins": bins,
             "threshold": threshold,
+            "distance_metric": distance_metric,
         },
         "output": {
             "csv_file": f"{video_name}_processed_chist_diff.csv",
@@ -296,7 +392,7 @@ def main(
     }
 
     # Save configuration to YAML file in the specified output folder
-    config_filename = output_path / f"{video_name}_chist_config.yaml"
+    config_filename = output_path / f"{video_name}_{distance_metric}_config.yaml"
     with open(config_filename, "w") as f:
         yaml.dump(config, f, default_flow_style=False, indent=2)
 
@@ -313,6 +409,7 @@ def main(
         print(
             f"Processing {num_frames} frames with patch_size: {patch_size}, bins: {bins}"
         )
+        print(f"Using distance metric: {distance_metric}")
         print(f"Using {'JIT optimizations' if NUMBA_AVAILABLE else 'NumPy fallback'}")
 
     # Use deque for O(1) append/popleft operations instead of list
@@ -356,13 +453,42 @@ def main(
         # Vectorized histogram difference computation using JIT
         hist1, hist2, hist3 = hist_buffer[0], hist_buffer[1], hist_buffer[2]
 
-        # Use JIT-compiled function for maximum speed
+        # Use JIT-compiled function for maximum speed with selected distance metric
         if NUMBA_AVAILABLE:
-            hist_diff = compute_histogram_differences_jit(hist1, hist2, hist3)
+            hist_diff = compute_histogram_differences_jit(
+                hist1, hist2, hist3, distance_metric
+            )
         else:
             # Fallback to explicit numpy operations (identical to JIT version)
-            diff1 = np.sqrt(np.sum((hist2 - hist1) ** 2, axis=1))
-            diff2 = np.sqrt(np.sum((hist3 - hist2) ** 2, axis=1))
+            if distance_metric == "euclidean":
+                diff1 = np.sqrt(np.sum((hist2 - hist1) ** 2, axis=1))
+                diff2 = np.sqrt(np.sum((hist3 - hist2) ** 2, axis=1))
+            elif distance_metric == "wasserstein":
+                n_patches = hist1.shape[0]
+                diff1 = np.zeros(n_patches)
+                diff2 = np.zeros(n_patches)
+                for i in range(n_patches):
+                    cum1 = np.cumsum(hist1[i])
+                    cum2 = np.cumsum(hist2[i])
+                    cum3 = np.cumsum(hist3[i])
+                    diff1[i] = np.sum(np.abs(cum2 - cum1))
+                    diff2[i] = np.sum(np.abs(cum3 - cum2))
+            elif distance_metric == "chi_square":
+                n_patches = hist1.shape[0]
+                diff1 = np.zeros(n_patches)
+                diff2 = np.zeros(n_patches)
+                eps = 1e-10
+                for i in range(n_patches):
+                    sum_hist = hist1[i] + hist2[i] + eps
+                    chi_sq_12 = np.sum(((hist2[i] - hist1[i]) ** 2) / sum_hist)
+                    diff1[i] = np.sqrt(chi_sq_12)
+                    sum_hist = hist2[i] + hist3[i] + eps
+                    chi_sq_23 = np.sum(((hist3[i] - hist2[i]) ** 2) / sum_hist)
+                    diff2[i] = np.sqrt(chi_sq_23)
+            else:
+                # Default to Euclidean
+                diff1 = np.sqrt(np.sum((hist2 - hist1) ** 2, axis=1))
+                diff2 = np.sqrt(np.sum((hist3 - hist2) ** 2, axis=1))
             hist_diff = diff1 + diff2
 
         normalized_diff = np.minimum(hist_diff, threshold) / threshold
@@ -430,6 +556,13 @@ if __name__ == "__main__":
         action="store_true",
         help="Enable verbose output with detailed progress information",
     )
+    parser.add_argument(
+        "--distance-metric",
+        type=str,
+        default="euclidean",
+        choices=["euclidean", "wasserstein", "chi_square"],
+        help="Distance metric for histogram comparison (default: euclidean)",
+    )
     args = parser.parse_args()
 
     # Create output folder path
@@ -438,7 +571,7 @@ if __name__ == "__main__":
     crop_box = args.crop_box
     frame_skip = args.frame_skip
     patch_size = (32, 32)
-    bins = 8
+    bins = 16
     visualize = args.visualize
     verbose = args.verbose
 
@@ -449,11 +582,13 @@ if __name__ == "__main__":
     if 0:
         video_dir = "data/insects/"
         video_files = sorted([str(f) for f in Path(video_dir).rglob("PICT7*.mp4")])
-
+    elif 0:
+        video_dir = "data/external_data/"
+        video_files = sorted([str(f) for f in Path(video_dir).rglob("*.mp4")])
     else:
         video_dir = "data/"
-        # video_files = sorted([str(f) for f in Path(video_dir).rglob("FH*.avi")])
-        video_files = sorted([str(f) for f in Path(video_dir).rglob("S1_1*.avi")])
+        video_files = sorted([str(f) for f in Path(video_dir).rglob("FH*.avi")])
+        # video_files = sorted([str(f) for f in Path(video_dir).rglob("ece*.avi")])
 
     if verbose:
         print(f"Found {len(video_files)} videos in {video_dir}")
@@ -527,11 +662,12 @@ if __name__ == "__main__":
             visualize=visualize,
             verbose=verbose,
             output_folder=str(outfolder),
+            distance_metric=args.distance_metric,
         )
 
         fname = (
             outfolder
-            / f"{video_path.split('/')[-1].split('.')[0]}_processed_chist_diff.csv"
+            / f"{video_path.split('/')[-1].split('.')[0]}_processed_{args.distance_metric}_diff.csv"
         )
         df_hist_diff.to_csv(
             fname,

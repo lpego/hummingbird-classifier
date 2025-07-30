@@ -28,7 +28,7 @@ import matplotlib.pyplot as plt
 VERBOSE = False
 
 
-def load_ground_truth(video_name, gt_file="./data/Weinstein2018MEE_ground_truth.csv"):
+def load_ground_truth(video_name, gt_file="./data/cleaned_ground_truth.csv"):
     """
     Load ground truth data for the specified video. If the CSV changes, the logic here fails
     Gotta double check:
@@ -231,7 +231,7 @@ def compute_aggregated_diff(df_change, method="colorhist"):
     return df_change
 
 
-def compute_precision_recall(df_change, positives, k_values, buffer=3):
+def compute_precision_recall(df_change, positives, k_values, buffer=1):
     """
     Compute precision and recall for different k values.
     k defines the number of top frames to consider for precision/recall after sorting the score
@@ -246,10 +246,6 @@ def compute_precision_recall(df_change, positives, k_values, buffer=3):
 
     Returns:
         DataFrame with precision and recall for each k value
-
-    Raises:
-        ValueError if k_values is not a list or integer
-
     """
     # Sort frames by aggregated_diff score (descending)
     sorted_scores = df_change.sort_values(by="aggregated_diff", ascending=False)

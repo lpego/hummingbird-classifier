@@ -123,26 +123,23 @@ if [ "$HELP" = true ]; then
 fi
 
 # Check if Python scripts exist
-CHIST_SCRIPT="video_frame_diff_colorhist.py"
 TRIPLET_SCRIPT="video_frame_diff_triplet.py"
 RUNNING_MEAN_SCRIPT="video_frame_diff_running_mean.py"
-
-for script in "$CHIST_SCRIPT" "$TRIPLET_SCRIPT" "$RUNNING_MEAN_SCRIPT"; do
-    if [ ! -f "$script" ]; then
-        print_error "Script not found: $script"
-        exit 1
-    fi
-done
+CHIST_SCRIPT="video_frame_diff_colorhist.py"
+WASSERSTEIN_SCRIPT="video_frame_diff_colorhist.py"
+CHI_SQUARE_SCRIPT="video_frame_diff_colorhist.py"
 
 # Create main output directory
 mkdir -p "$OUTPUT_DIR"
 
 # Create subdirectories for each method
-CHIST_DIR="$OUTPUT_DIR/color_histogram"
+CHIST_DIR="$OUTPUT_DIR/euclidean"
 TRIPLET_DIR="$OUTPUT_DIR/triplet_analysis"
 RUNNING_MEAN_DIR="$OUTPUT_DIR/running_mean"
+WASSERSTEIN_DIR="$OUTPUT_DIR/wasserstein"
+CHI_SQUARE_DIR="$OUTPUT_DIR/chi_square"  # chi_square is in parent results directory
 
-mkdir -p "$CHIST_DIR" "$TRIPLET_DIR" "$RUNNING_MEAN_DIR"
+mkdir -p "$CHIST_DIR" "$TRIPLET_DIR" "$RUNNING_MEAN_DIR" "$WASSERSTEIN_DIR" "$CHI_SQUARE_DIR"
 
 print_status "Starting comprehensive frame difference analysis..."
 print_status "Output directory: $OUTPUT_DIR"
@@ -156,6 +153,7 @@ echo "============================================"
 echo "ANALYSIS METHODS TO BE EXECUTED:"
 echo "============================================"
 echo "1. Color Histogram Differences"
+echo "   - Variants: 1A Euclidean, 1B Wasserstein, 1C Chi-Square"
 echo "2. Triplet Frame Differences"  
 echo "3. Running Mean Background Subtraction"
 echo "============================================"
@@ -197,9 +195,23 @@ echo "Starting analysis pipeline..."
 echo ""
 
 # 1. Color Histogram Differences
-echo "📊 METHOD 1: COLOR HISTOGRAM DIFFERENCES"
-echo "========================================"
-if ! run_analysis "Color Histogram Analysis" "$CHIST_SCRIPT" "$CHIST_DIR" "--frame-skip $FRAME_SKIP"; then
+echo "📊 METHOD 1A: COLOR HISTOGRAM DIFFERENCES (EUCLIDEAN)"
+echo "===================================================="
+if ! run_analysis "Color Histogram Analysis (Euclidean)" "$CHIST_SCRIPT" "$CHIST_DIR" "--frame-skip $FRAME_SKIP --distance-metric euclidean --verbose"; then
+    OVERALL_SUCCESS=false
+fi
+echo ""
+
+echo "📊 METHOD 1B: COLOR HISTOGRAM DIFFERENCES (WASSERSTEIN)"
+echo "======================================================"
+if ! run_analysis "Color Histogram Analysis (Wasserstein)" "$WASSERSTEIN_SCRIPT" "$WASSERSTEIN_DIR" "--frame-skip $FRAME_SKIP --distance-metric wasserstein --verbose"; then
+    OVERALL_SUCCESS=false
+fi
+echo ""
+
+echo "📊 METHOD 1C: COLOR HISTOGRAM DIFFERENCES (CHI-SQUARE)"
+echo "====================================================="
+if ! run_analysis "Color Histogram Analysis (Chi-Square)" "$CHI_SQUARE_SCRIPT" "$CHI_SQUARE_DIR" "--frame-skip $FRAME_SKIP --distance-metric chi_square --verbose"; then
     OVERALL_SUCCESS=false
 fi
 echo ""
@@ -207,7 +219,7 @@ echo ""
 # 2. Triplet Frame Differences
 echo "🔀 METHOD 2: TRIPLET FRAME DIFFERENCES"
 echo "======================================"
-if ! run_analysis "Triplet Frame Analysis" "$TRIPLET_SCRIPT" "$TRIPLET_DIR" "--frame-skip $FRAME_SKIP"; then
+if ! run_analysis "Triplet Frame Analysis" "$TRIPLET_SCRIPT" "$TRIPLET_DIR" "--frame-skip $FRAME_SKIP" "--verbose"; then
     OVERALL_SUCCESS=false
 fi
 echo ""
@@ -215,7 +227,7 @@ echo ""
 # 3. Running Mean Background Subtraction
 echo "📈 METHOD 3: RUNNING MEAN BACKGROUND SUBTRACTION"
 echo "==============================================="
-if ! run_analysis "Running Mean Analysis" "$RUNNING_MEAN_SCRIPT" "$RUNNING_MEAN_DIR" "--running-mean-N $RUNNING_MEAN_N"; then
+if ! run_analysis "Running Mean Analysis" "$RUNNING_MEAN_SCRIPT" "$RUNNING_MEAN_DIR" "--running-mean-N $RUNNING_MEAN_N" "--verbose"; then
     OVERALL_SUCCESS=false
 fi
 echo ""
