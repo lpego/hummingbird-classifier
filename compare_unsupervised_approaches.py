@@ -21,7 +21,7 @@ import matplotlib.pyplot as plt
 VERBOSE = True
 
 
-def load_ground_truth(video_name, gt_file="./data/Weinstein2018MEE_ground_truth.csv"):
+def load_ground_truth(video_name, gt_file="./data/cleaned_ground_truth.csv"):
     """
     Load ground truth data for the specified video. If the CSV changes, the logic here fails
     Gotta double check:
@@ -31,7 +31,7 @@ def load_ground_truth(video_name, gt_file="./data/Weinstein2018MEE_ground_truth.
 
     Args:
         video_name: Name of the video (e.g., 'FH102_02')
-        gt_folder: Folder containing the ground truth data (default: './data')
+        gt_file: Path to the ground truth CSV file (default: './data/cleaned_ground_truth.csv')
     Returns:
         gt_video: DataFrame with ground truth for the specified video
         positives: DataFrame with positive ground truth frames
@@ -63,14 +63,14 @@ def load_ground_truth(video_name, gt_file="./data/Weinstein2018MEE_ground_truth.
 
 
 def load_unsupervised_data(
-    video_name, method="colorhist", results_folder="./results/hummingbird"
+    video_name, method="euclidean", results_folder="./results/hummingbird"
 ):
     """
     Load processed data for unsupervised approaches.
 
     Args:
         video_name: Name of the video (e.g., 'FH102_02')
-        method: 'colorhist', 'triplet', 'running_mean', 'combined', 'wasserstein', 'chi_square'
+        method: 'euclidean', 'triplet', 'running_mean', 'combined', 'wasserstein', 'chi_square'
         results_folder: Base folder containing the analysis results
 
         Returns:
@@ -79,15 +79,15 @@ def load_unsupervised_data(
     """
 
     # First create filenames to read, then read
-    if method == "colorhist":
-        # Load from color_histogram subfolder
+    if method == "euclidean":
+        # Load from euclidean subfolder
         csv_file = os.path.join(
             results_folder,
-            "color_histogram",
-            f"{video_name}_processed_chist_diff.csv",
+            "euclidean",
+            f"{video_name}_euclidean_diff.csv",
         )
         config_file = os.path.join(
-            results_folder, "color_histogram", f"{video_name}_chist_config.yaml"
+            results_folder, "euclidean", f"{video_name}_euclidean_config.yaml"
         )
     elif method == "triplet":
         # Load from triplet_analysis subfolder
@@ -139,7 +139,7 @@ def load_unsupervised_data(
         config_file = None  # No config for combined scores
     else:
         raise ValueError(
-            "method must be 'colorhist', 'triplet', 'running_mean', 'wasserstein', 'chi_square', or 'combined'"
+            "method must be 'euclidean', 'triplet', 'running_mean', 'wasserstein', 'chi_square', or 'combined'"
         )
 
     if not os.path.exists(csv_file):
@@ -157,7 +157,7 @@ def load_unsupervised_data(
     return df_change, config
 
 
-def compute_aggregated_diff(df_change, method="colorhist"):
+def compute_aggregated_diff(df_change, method="euclidean"):
     """
     Compute aggregated difference score based on the method, in case a script returns multiple scores.
     Potentially, this should not be used and first go through the score combination script.
@@ -165,7 +165,7 @@ def compute_aggregated_diff(df_change, method="colorhist"):
 
     Args:
         df_change: dataframe containing anomaly
-        method: method name for defining cols to rename ('colorhist', 'triplet', 'running_mean', 'wasserstein', 'chi_square')
+        method: method name for defining cols to rename ('euclidean', 'triplet', 'running_mean', 'wasserstein', 'chi_square')
 
     Returns:
         df_change: DataFrame with aggregated_diff column added
@@ -174,7 +174,7 @@ def compute_aggregated_diff(df_change, method="colorhist"):
         ValueError if column name is wrong.
     """
 
-    if method == "colorhist":
+    if method == "euclidean":
         # For color histogram analysis: use the stdev_magn_diff_chist column directly
         if "stdev_magn_diff_chist" in df_change.columns:
             df_change["aggregated_diff"] = df_change["stdev_magn_diff_chist"]
@@ -206,25 +206,33 @@ def compute_aggregated_diff(df_change, method="colorhist"):
             )
 
     elif method == "wasserstein":
-        # For Wasserstein distance analysis: use the wasserstein_distance column directly
+        # For Wasserstein distance analysis: check multiple possible column names
         if "wasserstein_distance" in df_change.columns:
             df_change["aggregated_diff"] = df_change["wasserstein_distance"]
         elif "stdev_magn_diff_wasserstein" in df_change.columns:
             df_change["aggregated_diff"] = df_change["stdev_magn_diff_wasserstein"]
+        elif "stdev_magn_diff_chist" in df_change.columns:
+            # Fallback: the actual column name found in the data
+            df_change["aggregated_diff"] = df_change["stdev_magn_diff_chist"]
         else:
             raise ValueError(
-                "Wasserstein analysis data missing 'wasserstein_distance' or 'stdev_magn_diff_wasserstein' column"
+                "Wasserstein analysis data missing expected columns. Available columns: "
+                + str(list(df_change.columns))
             )
 
     elif method == "chi_square":
-        # For chi-square analysis: use the chi_square_statistic column directly
+        # For chi-square analysis: check multiple possible column names
         if "chi_square_statistic" in df_change.columns:
             df_change["aggregated_diff"] = df_change["chi_square_statistic"]
         elif "stdev_magn_diff_chi_square" in df_change.columns:
             df_change["aggregated_diff"] = df_change["stdev_magn_diff_chi_square"]
+        elif "stdev_magn_diff_chist" in df_change.columns:
+            # Fallback: the actual column name found in the data
+            df_change["aggregated_diff"] = df_change["stdev_magn_diff_chist"]
         else:
             raise ValueError(
-                "Chi-square analysis data missing 'chi_square_statistic' or 'stdev_magn_diff_chi_square' column"
+                "Chi-square analysis data missing expected columns. Available columns: "
+                + str(list(df_change.columns))
             )
 
     elif method == "combined":
@@ -317,7 +325,7 @@ def create_precision_recall_plots(precision_recall_df, output_folder, video_name
     # Separate data by method
     methods = precision_recall_df["method"].unique()
     colors = {
-        "colorhist": "red",
+        "euclidean": "red",
         "triplet": "blue",
         "running_mean": "purple",
         "combined": "green",
@@ -325,7 +333,7 @@ def create_precision_recall_plots(precision_recall_df, output_folder, video_name
         "chi_square": "brown",
     }
     markers = {
-        "colorhist": "s",
+        "euclidean": "s",
         "triplet": "o",
         "running_mean": "^",
         "combined": "d",
@@ -515,7 +523,7 @@ def create_precision_recall_plots(precision_recall_df, output_folder, video_name
 
             # Add text annotations for best F1 scores - spread to corners
             corner_positions = {
-                "colorhist": (0.02, 0.98),  # Top left
+                "euclidean": (0.02, 0.98),  # Top left
                 "triplet": (0.65, 0.98),  # Top right
                 "running_mean": (0.02, 0.83),  # Bottom left
                 "combined": (0.65, 0.83),  # Bottom right
@@ -705,7 +713,7 @@ def create_precision_recall_plots(precision_recall_df, output_folder, video_name
     # Create legend handles for methods only
     legend_handles = []
     method_labels = {
-        "colorhist": "Color Histogram",
+        "euclidean": "Color Histogram",
         "triplet": "Triplet Analysis",
         "running_mean": "Running Mean",
         "combined": "Combined Score",
@@ -754,7 +762,7 @@ def create_precision_recall_plots(precision_recall_df, output_folder, video_name
 def get_available_videos(results_folder="./results/hummingbird"):
     """
     Get list of available videos based on CSV files in the results folder.
-    Uses color histogram folder as the primary source for video discovery.
+    Uses euclidean folder as the primary source for video discovery.
 
     Args:
         results_folder: Base folder containing analysis results
@@ -764,16 +772,16 @@ def get_available_videos(results_folder="./results/hummingbird"):
     """
     videos = set()
 
-    # Check color histogram folder
-    colorhist_folder = os.path.join(results_folder, "color_histogram")
-    if os.path.exists(colorhist_folder):
-        for csv_file in os.listdir(colorhist_folder):
-            if csv_file.endswith("_processed_chist_diff.csv"):
-                video_name = csv_file.replace("_processed_chist_diff.csv", "")
+    # Check euclidean folder
+    euclidean_folder = os.path.join(results_folder, "euclidean")
+    if os.path.exists(euclidean_folder):
+        for csv_file in os.listdir(euclidean_folder):
+            if csv_file.endswith("_euclidean_diff.csv"):
+                video_name = csv_file.replace("_euclidean_diff.csv", "")
                 videos.add(video_name)
 
     # Also check ground truth for validation
-    gt_path = os.path.join("./data", "Weinstein2018MEE_ground_truth.csv")
+    gt_path = os.path.join("./data", "cleaned_ground_truth.csv")
     if os.path.exists(gt_path):
         gt_df = pd.read_csv(gt_path)
         gt_videos = set(gt_df["Video"].unique())
@@ -920,16 +928,16 @@ def main():
         type=str,
         nargs="+",
         choices=[
-            "colorhist",
+            "euclidean",
             "triplet",
             "running_mean",
-            "combined",
+            # "combined",
             "wasserstein",
             "chi_square",
             "all",
         ],
         default=["all"],
-        help="Method(s) to compare: colorhist, triplet, running_mean, combined, wasserstein, chi_square, or all (default: all)",
+        help="Method(s) to compare: euclidean, triplet, running_mean, combined, wasserstein, chi_square, or all (default: all)",
     )
     parser.add_argument(
         "--buffer",
@@ -949,6 +957,7 @@ def main():
         default="./results/hummingbird",
         help="Folder containing the analysis results (default: ./results/hummingbird)",
     )
+    # results/hummingbird/chi_square
     parser.add_argument(
         "--gt-folder",
         type=str,
@@ -971,7 +980,7 @@ def main():
     # Determine which methods to run
     if "all" in args.method:
         methods_to_run = [
-            "colorhist",
+            "euclidean",
             "triplet",
             "running_mean",
             # "combined",
@@ -993,10 +1002,11 @@ def main():
         if not videos_to_process:
             print(f"No videos found in {args.results_folder}")
             print("Make sure the results folder contains the expected subfolders:")
-            print("  - color_histogram/")
+            print("  - euclidean/")
             print("  - triplet_analysis/")
             print("  - running_mean/")
-            print("  - combined/")
+            print("  - wasserstein/")
+            print("  - chi_square/")
             return 1
 
         if VERBOSE:

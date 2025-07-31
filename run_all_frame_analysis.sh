@@ -197,21 +197,21 @@ echo ""
 # 1. Color Histogram Differences
 echo "📊 METHOD 1A: COLOR HISTOGRAM DIFFERENCES (EUCLIDEAN)"
 echo "===================================================="
-if ! run_analysis "Color Histogram Analysis (Euclidean)" "$CHIST_SCRIPT" "$CHIST_DIR" "--frame-skip $FRAME_SKIP --distance-metric euclidean --verbose"; then
+if ! run_analysis "Color Histogram Analysis (Euclidean)" "$CHIST_SCRIPT" "$CHIST_DIR" "--frame-skip $FRAME_SKIP --distance-metric euclidean"; then
     OVERALL_SUCCESS=false
 fi
 echo ""
 
 echo "📊 METHOD 1B: COLOR HISTOGRAM DIFFERENCES (WASSERSTEIN)"
 echo "======================================================"
-if ! run_analysis "Color Histogram Analysis (Wasserstein)" "$WASSERSTEIN_SCRIPT" "$WASSERSTEIN_DIR" "--frame-skip $FRAME_SKIP --distance-metric wasserstein --verbose"; then
+if ! run_analysis "Color Histogram Analysis (Wasserstein)" "$WASSERSTEIN_SCRIPT" "$WASSERSTEIN_DIR" "--frame-skip $FRAME_SKIP --distance-metric wasserstein"; then
     OVERALL_SUCCESS=false
 fi
 echo ""
 
 echo "📊 METHOD 1C: COLOR HISTOGRAM DIFFERENCES (CHI-SQUARE)"
 echo "====================================================="
-if ! run_analysis "Color Histogram Analysis (Chi-Square)" "$CHI_SQUARE_SCRIPT" "$CHI_SQUARE_DIR" "--frame-skip $FRAME_SKIP --distance-metric chi_square --verbose"; then
+if ! run_analysis "Color Histogram Analysis (Chi-Square)" "$CHI_SQUARE_SCRIPT" "$CHI_SQUARE_DIR" "--frame-skip $FRAME_SKIP --distance-metric chi_square"; then
     OVERALL_SUCCESS=false
 fi
 echo ""
@@ -219,7 +219,7 @@ echo ""
 # 2. Triplet Frame Differences
 echo "🔀 METHOD 2: TRIPLET FRAME DIFFERENCES"
 echo "======================================"
-if ! run_analysis "Triplet Frame Analysis" "$TRIPLET_SCRIPT" "$TRIPLET_DIR" "--frame-skip $FRAME_SKIP" "--verbose"; then
+if ! run_analysis "Triplet Frame Analysis" "$TRIPLET_SCRIPT" "$TRIPLET_DIR" "--frame-skip $FRAME_SKIP"; then
     OVERALL_SUCCESS=false
 fi
 echo ""
@@ -227,10 +227,11 @@ echo ""
 # 3. Running Mean Background Subtraction
 echo "📈 METHOD 3: RUNNING MEAN BACKGROUND SUBTRACTION"
 echo "==============================================="
-if ! run_analysis "Running Mean Analysis" "$RUNNING_MEAN_SCRIPT" "$RUNNING_MEAN_DIR" "--running-mean-N $RUNNING_MEAN_N" "--verbose"; then
+if ! run_analysis "Running Mean Analysis" "$RUNNING_MEAN_SCRIPT" "$RUNNING_MEAN_DIR" "--running-mean-N $RUNNING_MEAN_N"; then
     OVERALL_SUCCESS=false
 fi
 echo ""
+
 
 # Summary
 echo "============================================"
@@ -242,6 +243,8 @@ if [ "$OVERALL_SUCCESS" = true ]; then
     echo ""
     print_status "Results saved to:"
     echo "  📊 Color Histogram: $CHIST_DIR"
+    echo "  📊 Wasserstein Analysis: $WASSERSTEIN_DIR"
+    echo "  📊 Chi-Square Analysis: $CHI_SQUARE_DIR"
     echo "  🔀 Triplet Analysis: $TRIPLET_DIR"
     echo "  📈 Running Mean: $RUNNING_MEAN_DIR"
     echo ""

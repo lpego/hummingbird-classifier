@@ -385,8 +385,8 @@ def main(
             "distance_metric": distance_metric,
         },
         "output": {
-            "csv_file": f"{video_name}_processed_chist_diff.csv",
-            "config_file": f"{video_name}_config.yaml",
+            "csv_file": f"{video_name}_{distance_metric}_diff.csv",
+            "config_file": f"{video_name}_{distance_metric}_config.yaml",
             "output_folder": str(output_path),
         },
     }
@@ -667,7 +667,7 @@ if __name__ == "__main__":
 
         fname = (
             outfolder
-            / f"{video_path.split('/')[-1].split('.')[0]}_processed_{args.distance_metric}_diff.csv"
+            / f"{video_path.split('/')[-1].split('.')[0]}_{args.distance_metric}_diff.csv"
         )
         df_hist_diff.to_csv(
             fname,
