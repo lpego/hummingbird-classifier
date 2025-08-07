@@ -4,6 +4,7 @@
 
 from pathlib import Path
 from PIL import Image
+from typing import Dict, List, Tuple, Optional, Any
 
 # import datetime
 
@@ -44,22 +45,33 @@ from src.HummingbirdLoader import (
 from src.utils import Denormalize
 
 
-# %%
 class HummingbirdModel(pl.LightningModule):
     """
-    pytorch lightning class def and model setup
+    PyTorch Lightning module for hummingbird classification.
+
+    This model uses a pretrained CNN backbone for binary classification of hummingbird presence
+    in images. Supports data augmentation, weighted sampling, and custom transforms.
+
+    Args:
+        pos_data_dir: Path to directory containing positive samples
+        pretrained_network: Name of pretrained model architecture
+        learning_rate: Learning rate for optimizer
+        batch_size: Batch size for training
+        weight_decay: Weight decay for optimizer
+        num_workers_loader: Number of workers for data loading
+        step_size_decay: Patience for learning rate scheduler
     """
 
     def __init__(
         self,
-        pos_data_dir="data/",
+        pos_data_dir: str = "data/",
         # neg_data_dir="data/",
-        pretrained_network="resnet50",
-        learning_rate=1e-4,
-        batch_size=32,
-        weight_decay=1e-8,
-        num_workers_loader=4,
-        step_size_decay=5,
+        pretrained_network: str = "resnet50",
+        learning_rate: float = 1e-4,
+        batch_size: int = 32,
+        weight_decay: float = 1e-8,
+        num_workers_loader: int = 4,
+        step_size_decay: int = 5,
     ):
         super().__init__()
 
@@ -155,12 +167,31 @@ class HummingbirdModel(pl.LightningModule):
 
         self.save_hyperparameters()
 
-    def forward(self, x):
-        "forward pass return unnormalised logits, normalise when needed"
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        """
+        Forward pass through the model.
+
+        Args:
+            x: Input tensor of shape (batch_size, channels, height, width)
+
+        Returns:
+            Unnormalized logits of shape (batch_size, num_classes)
+        """
         return self.model(x)
 
-    def training_step(self, batch, batch_idx):
-        "training iteration per batch"
+    def training_step(
+        self, batch: Tuple[torch.Tensor, torch.Tensor, torch.Tensor], batch_idx: int
+    ) -> torch.Tensor:
+        """
+        Training step for one batch.
+
+        Args:
+            batch: Tuple of (images, labels, indices)
+            batch_idx: Index of the current batch
+
+        Returns:
+            Training loss for this batch
+        """
         x, y, _ = batch
         logits = self(x)
         loss = F.cross_entropy(logits, y)
@@ -179,8 +210,23 @@ class HummingbirdModel(pl.LightningModule):
         self.log("learning_rate", self.learning_rate, prog_bar=True, sync_dist=False)
         return loss
 
-    def validation_step(self, batch, batch_idx, print_log: str = "val"):
-        "validation iteration per batch"
+    def validation_step(
+        self,
+        batch: Tuple[torch.Tensor, torch.Tensor, torch.Tensor],
+        batch_idx: int,
+        print_log: str = "val",
+    ) -> torch.Tensor:
+        """
+        Validation step for one batch.
+
+        Args:
+            batch: Tuple of (images, labels, indices)
+            batch_idx: Index of the current batch
+            print_log: Prefix for logging metrics
+
+        Returns:
+            Validation loss for this batch
+        """
         x, y, _ = batch
         logits = self(x)
         loss = F.cross_entropy(logits, y)
@@ -204,21 +250,55 @@ class HummingbirdModel(pl.LightningModule):
 
         return loss
 
-    def test_step(self, batch, batch_idx, print_log: str = "tst"):
-        "test iteration per batch"
+    def test_step(
+        self,
+        batch: Tuple[torch.Tensor, torch.Tensor, torch.Tensor],
+        batch_idx: int,
+        print_log: str = "tst",
+    ) -> torch.Tensor:
+        """
+        Test step for one batch.
+
+        Args:
+            batch: Tuple of (images, labels, indices)
+            batch_idx: Index of the current batch
+            print_log: Prefix for logging metrics
+
+        Returns:
+            Test loss for this batch
+        """
         # Reuse the validation_step for testing
         return self.validation_step(batch, batch_idx, print_log)
 
-    def predict_step(self, batch, batch_idx, dataloader_idx: int = None):
+    def predict_step(
+        self,
+        batch: Tuple[torch.Tensor, torch.Tensor, torch.Tensor],
+        batch_idx: int,
+        dataloader_idx: Optional[int] = None,
+    ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+        """
+        Prediction step for one batch.
+
+        Args:
+            batch: Tuple of (images, labels, indices)
+            batch_idx: Index of the current batch
+            dataloader_idx: Index of the dataloader (for multiple dataloaders)
+
+        Returns:
+            Tuple of (predictions, probabilities, true_labels)
+        """
         x, y, _ = batch
         logits = self(x)
         probs = torch.softmax(logits, dim=1)
         preds = torch.argmax(probs, dim=1)
         return preds, probs, y
 
-    def configure_optimizers(self):
+    def configure_optimizers(self) -> Dict[str, Any]:
         """
-        optimiser config plus lr scheduler callback
+        Configure optimizer and learning rate scheduler.
+
+        Returns:
+            Dictionary containing optimizer and scheduler configuration
         """
         optimizer = torch.optim.AdamW(
             self.model.parameters(),
@@ -246,8 +326,16 @@ class HummingbirdModel(pl.LightningModule):
     # DATA RELATED HOOKS #
     ######################
 
-    def train_dataloader(self, shuffle=True):
-        "def of custom training dataloader"
+    def train_dataloader(self, shuffle: bool = True) -> DataLoader:
+        """
+        Create training dataloader with weighted sampling.
+
+        Args:
+            shuffle: Whether to use weighted random sampling (True) or sequential sampling
+
+        Returns:
+            DataLoader for training data
+        """
         dir_dict_trn = {
             "negatives": [
                 Path(self.neg_data_dir) / "trn_set/class_0",
@@ -304,8 +392,13 @@ class HummingbirdModel(pl.LightningModule):
                 sampler=sampler,
             )
 
-    def val_dataloader(self):
-        "def of custom val dataloader"
+    def val_dataloader(self) -> DataLoader:
+        """
+        Create validation dataloader.
+
+        Returns:
+            DataLoader for validation data
+        """
 
         dir_dict_val = {
             "negatives": Path(self.neg_data_dir) / "tst_set/class_0",
@@ -319,8 +412,13 @@ class HummingbirdModel(pl.LightningModule):
             val_d, batch_size=self.batch_size, num_workers=self.num_workers_loader
         )
 
-    def tst_dataloader(self):
-        "def of custom test dataloader"
+    def tst_dataloader(self) -> DataLoader:
+        """
+        Create test dataloader.
+
+        Returns:
+            DataLoader for test data
+        """
 
         dir_dict_tst = {
             "negatives": Path(self.neg_data_dir) / "tst_set/class_0",
@@ -334,11 +432,18 @@ class HummingbirdModel(pl.LightningModule):
             tst_d, batch_size=self.batch_size, num_workers=self.num_workers_loader
         )
 
-    def tst_external_dataloader(self, path, batch_size=16):
+    def tst_external_dataloader(self, path: str, batch_size: int = 16) -> DataLoader:
         """
-        def of test dataloader from external data. All loaded as `negative` samples,
-        but just for convenience to maintain ordering"
-        e.g. /data/shared/frame-diff-anomaly/data/FH102_02/
+        Create test dataloader from external data directory.
+
+        All images are loaded as 'negative' samples for convenience to maintain ordering.
+
+        Args:
+            path: Path to directory containing test images
+            batch_size: Batch size for the dataloader
+
+        Returns:
+            DataLoader for external test data
         """
 
         dir_dict_tst_ex = {"negatives": Path(path), "positives": Path("")}

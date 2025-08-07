@@ -17,7 +17,7 @@ from datetime import datetime
 from skimage import exposure
 
 
-def read_pretrained_model(architecture, n_class):
+def read_pretrained_model(architecture: str, n_class: int) -> nn.Module:
     """
     Helper script to load models compactly from pytorch model zoo and prepare them for Hummingbird finetuning
 
@@ -170,7 +170,9 @@ def read_pretrained_model(architecture, n_class):
     return model
 
 
-def find_checkpoints(dirs=Path("lightning_logs"), type="best"):
+def find_checkpoints(
+    dirs: Path = Path("lightning_logs"), type: str = "best"
+) -> list[Path]:
     """
     Find the checkpoints of the models in the given directory
 
@@ -210,7 +212,7 @@ class cfg_to_arguments(object):
     cfg can be from configs stored in YAML file, a JSON file, or a dictionary, whatever you prefer.
     """
 
-    def __init__(self, args):
+    def __init__(self, args: dict) -> None:
         """
         Parameters
         ----------
@@ -220,7 +222,7 @@ class cfg_to_arguments(object):
         for key in args:
             setattr(self, key, args[key])
 
-    def __str__(self):
+    def __str__(self) -> str:
         """Prints the object as a string"""
         return self.__dict__.__str__()
 
@@ -233,7 +235,7 @@ class SaveLogCallback(Callback):
     structured way
     """
 
-    def __init__(self, model_folder):
+    def __init__(self, model_folder: Path) -> None:
         # super().__init__()
         self.model_folder = model_folder
 
@@ -261,7 +263,7 @@ class SaveLogCallback(Callback):
     #             f,
     #         )
 
-    def on_train_end(self, trainer, pl_module):
+    def on_train_end(self):
         """
         Save the end date of the training
         """
@@ -290,11 +292,11 @@ class SaveLogCallback(Callback):
 
 
 class Denormalize(object):
-    def __init__(self, mean, std):
+    def __init__(self, mean: list, std: list) -> None:
         self.mean = torch.Tensor(mean)
         self.std = torch.Tensor(std)
 
-    def __call__(self, tensor):
+    def __call__(self, tensor: torch.Tensor) -> torch.Tensor:
         """
         Args:
             tensor (Tensor): Tensor image of size (C, H, W) to be normalized.
@@ -311,13 +313,13 @@ class Denormalize(object):
 
 
 def compute_frame_change_detection(
-    frame_list,
-    index_central,
-    index_prior,
-    index_after,
-    score=np.std,
-    histogram_match=True,
-):
+    frame_list: list[np.array],
+    index_central: int,
+    index_prior: int,
+    index_after: int,
+    score: callable = np.std,
+    histogram_match: bool = True,
+) -> tuple[np.array, np.array]:
     """
     Compute the frame change detection. Given a list 3 of frames, compute the difference, as:
         d1 = t - t_prior
@@ -366,5 +368,15 @@ def compute_frame_change_detection(
         frame_post = exposure.match_histograms(
             frame_post, frame_central, channel_axis=2
         )
+
+    # Compute temporal differences
+    d1 = frame_central - frame_pre
+    d2 = frame_post - frame_central
+
+    # Compute composite difference
+    composite_diff = (1 + d1 - d2) / 2
+
+    # Compute score frame
+    score_frame = score(composite_diff, axis=2)
 
     return composite_diff, score_frame
