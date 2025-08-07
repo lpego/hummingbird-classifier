@@ -32,8 +32,15 @@ except ImportError:
 
 
 @jit(nopython=True, cache=True)
-def normalize_frame_jit(frame_flat, total_pixels):
-    """JIT-optimized frame normalization."""
+def normalize_frame_jit(frame_flat: np.ndarray, total_pixels: int) -> np.ndarray:
+    """JIT-optimized frame normalization. Normalize a flattened frame to [0, 1] float32.
+    Args:
+        frame_flat (np.ndarray): Flattened frame array of shape (h * w * c)
+        total_pixels (int): Total number of pixels in the frame
+    Returns:
+        np.ndarray: Normalized frame array of shape (h * w * c)
+
+    """
     normalized = np.empty(total_pixels, dtype=np.float32)
     for i in range(total_pixels):
         normalized[i] = frame_flat[i] / 255.0
@@ -41,8 +48,24 @@ def normalize_frame_jit(frame_flat, total_pixels):
 
 
 @jit(nopython=True, cache=True)
-def update_running_mean_jit(buffer_sum, old_frame_flat, new_frame_flat, buffer_size):
-    """JIT-optimized running mean update using incremental computation."""
+def update_running_mean_jit(
+    buffer_sum: np.ndarray,
+    old_frame_flat: np.ndarray,
+    new_frame_flat: np.ndarray,
+    buffer_size: int,
+) -> np.ndarray:
+    """
+    JIT-optimized running mean update using incremental computation.
+
+    Args:
+        buffer_sum (np.ndarray): Current running sum of the buffer
+        old_frame_flat (np.ndarray): Flattened old frame array of shape (h * w * c)
+        new_frame_flat (np.ndarray): Flattened new frame array of shape (h * w * c)
+        buffer_size (int): Size of the running mean buffer
+
+    Returns:
+        np.ndarray: Updated running sum of the buffer
+    """
     # Update running sum by removing old frame and adding new frame
     for i in range(len(new_frame_flat)):
         buffer_sum[i] = buffer_sum[i] - old_frame_flat[i] + new_frame_flat[i]
@@ -50,10 +73,29 @@ def update_running_mean_jit(buffer_sum, old_frame_flat, new_frame_flat, buffer_s
 
 
 @jit(nopython=True, cache=True)
-def compute_running_mean_diff_jit_optimized(
-    current_frame_flat, buffer_sum, buffer_size, h, w, c
-):
-    """JIT-optimized running mean difference computation using incremental mean."""
+def compute_running_std_jit_optimized(
+    current_frame_flat: np.ndarray,
+    buffer_sum: np.ndarray,
+    buffer_size: int,
+    h: int,
+    w: int,
+    c: int,
+) -> float:
+    """
+    JIT-optimized running mean difference computation using incremental mean.
+
+    Args:
+        current_frame_flat (np.ndarray): Flattened current frame array of shape (h * w * c)
+        buffer_sum (np.ndarray): Current running sum of the buffer
+        buffer_size (int): Size of the running mean buffer
+        h (int): Height of the frame
+        w (int): Width of the frame
+        c (int): Number of color channels
+
+    Returns:
+        float: Standard deviation of the difference between current frame and running mean
+
+    """
     total_pixels = h * w
 
     # Compute difference and standard deviation
@@ -80,7 +122,7 @@ def compute_running_mean_diff_jit_optimized(
     return (variance**0.5) if variance > 0.0 else 0.0
 
 
-def normalize_frame(frame):
+def normalize_frame(frame: np.ndarray) -> np.ndarray:
     """Normalize frame to [0, 1] float32 with optional JIT acceleration."""
     if NUMBA_AVAILABLE and frame.size > 10000:
         flat_frame = frame.astype(np.uint8).ravel()
@@ -90,29 +132,50 @@ def normalize_frame(frame):
         return frame.astype(np.float32) / 255.0
 
 
-def match_histogram(source, reference):
-    """Match the histogram of the source frame to the reference frame."""
+def match_histogram(source: np.ndarray, reference: np.ndarray) -> np.ndarray:
+    """
+    Match the histogram of the source frame to the reference frame.
+    """
     matched = exposure.match_histograms(source, reference, channel_axis=-1)
     return matched
 
 
-def blur_frame(frame, ksize=5):
+def blur_frame(frame: np.ndarray, ksize: int = 5) -> np.ndarray:
     """Apply Gaussian blur to the frame."""
     return cv2.GaussianBlur(frame, (ksize, ksize), 0)
 
 
-def crop_frame(frame, crop_box):
+def crop_frame(frame: np.ndarray, crop_box: tuple) -> np.ndarray:
     """Crop the frame to the given box: (x, y, w, h)."""
     x, y, w, h = crop_box
     return frame[y : y + h, x : x + w]
 
 
-def preprocess_frame(frame, reference=None, crop_box=None, blur=False):
-    """Apply normalization, optional histogram matching, blurring, and cropping."""
-    frame = normalize_frame(frame)
+def preprocess_frame(
+    frame: np.ndarray,
+    reference: np.ndarray = None,
+    crop_box: tuple = None,
+    blur: bool = False,
+) -> np.ndarray:
+    """
+    Apply normalization, optional standardization, blurring, and cropping.
 
+    Args:
+        frame (np.ndarray): Input frame to preprocess.
+        reference (np.ndarray, optional): Reference frame for standardization.
+        crop_box (tuple, optional): Crop box as (x, y, w, h).
+        blur (bool, optional): Whether to apply Gaussian blur.
+
+    Returns:
+        np.ndarray: Preprocessed frame.
+    """
+    frame = frame.astype(np.float32) / 255.0
+    # normalize_frame(frame)
     if reference is not None:
+        # frame = match_histogram(frame, reference)
         frame = (frame - np.mean(reference)) / (np.std(reference) + 1e-8)
+    else:
+        frame = (frame - np.mean(frame)) / (np.std(frame) + 1e-8)
 
     if blur:
         frame = blur_frame(frame)
@@ -122,8 +185,12 @@ def preprocess_frame(frame, reference=None, crop_box=None, blur=False):
 
 
 def visualize_running_mean_difference(
-    current_frame, avg_frame, diff_frame, frame_idx, buffer_size
-):
+    current_frame: np.ndarray,
+    avg_frame: np.ndarray,
+    diff_frame: np.ndarray,
+    frame_idx: int,
+    buffer_size: int,
+) -> None:
     """Visualize the running mean background subtraction."""
     plt.figure(figsize=(12, 4))
 
@@ -153,13 +220,28 @@ def visualize_running_mean_difference(
 
 
 def process_running_mean_optimized(
-    decoder, num_frames, crop_box, running_mean_N, visualize=False, verbose=False
-):
+    decoder: VideoDecoder,
+    num_frames: int,
+    crop_box: tuple,
+    running_mean_N: int,
+    # visualize: bool = False,
+    verbose: bool = False,
+) -> dict:
     """
-    Highly optimized running mean computation with JIT and incremental averaging.
+    Optimized running mean computation with JIT and incremental averaging.
+    Uses circular buffer and incremental mean computation to avoid expensive array conversions and mean calculations every frame.
 
-    Uses circular buffer and incremental mean computation to avoid expensive
-    array conversions and mean calculations every frame.
+    Args:
+        decoder (VideoDecoder): Video decoder object to read frames.
+        num_frames (int): Total number of frames in the video.
+        crop_box (tuple): Crop box as (x, y, w, h).
+        running_mean_N (int): Size of the running mean buffer.
+        verbose (bool): Whether to print detailed progress information.
+
+    Returns:
+        dict: Dictionary with frame index as keys and computed standard deviation of differences as values.
+        Each entry contains the center index and the standard deviation of the difference from the running mean.
+
     """
     from collections import deque
     from tqdm import tqdm
@@ -195,7 +277,7 @@ def process_running_mean_optimized(
             frame_size = h * w * c
 
             # Use JIT optimization for large frames
-            if NUMBA_AVAILABLE and frame_size > 50000:
+            if NUMBA_AVAILABLE and frame_size > 10000:
                 use_jit_optimization = True
                 circular_buffer = np.zeros(
                     (running_mean_N, frame_size), dtype=np.float64
@@ -227,7 +309,7 @@ def process_running_mean_optimized(
                     effective_buffer_size = len(running_buffer)
 
                 # Compute difference using incremental mean
-                std_val = compute_running_mean_diff_jit_optimized(
+                std_val = compute_running_std_jit_optimized(
                     current_flat, buffer_sum, effective_buffer_size, h, w, c
                 )
 
@@ -238,22 +320,22 @@ def process_running_mean_optimized(
                     buffer_full = True
 
                 # Optional visualization for JIT path
-                if visualize and idx % 100 == 0:
-                    avg_frame = (buffer_sum / effective_buffer_size).reshape(
-                        frame_shape
-                    )
-                    diff = np.abs(pframe - avg_frame)
-                    normalize_frame_vis = lambda x: (x - np.min(x)) / (
-                        np.max(x) - np.min(x) + 1e-8
-                    )
-                    diff_vis = normalize_frame_vis(diff)
-                    visualize_running_mean_difference(
-                        pframe * 255,
-                        avg_frame * 255,
-                        diff_vis * 255,
-                        idx,
-                        effective_buffer_size,
-                    )
+                # if visualize and idx % 100 == 0:
+                #     avg_frame = (buffer_sum / effective_buffer_size).reshape(
+                #         frame_shape
+                #     )
+                #     diff = np.abs(pframe - avg_frame)
+                #     normalize_frame_vis = lambda x: (x - np.min(x)) / (
+                #         np.max(x) - np.min(x) + 1e-8
+                #     )
+                #     diff_vis = normalize_frame_vis(diff)
+                #     visualize_running_mean_difference(
+                #         pframe * 255,
+                #         avg_frame * 255,
+                #         diff_vis * 255,
+                #         idx,
+                #         effective_buffer_size,
+                #     )
 
             else:
                 # NumPy fallback for smaller frames
@@ -264,18 +346,18 @@ def process_running_mean_optimized(
                 std_val = np.std(diff_sum)
 
                 # Optional visualization for NumPy path
-                if visualize and idx % 100 == 0:
-                    normalize_frame_vis = lambda x: (x - np.min(x)) / (
-                        np.max(x) - np.min(x) + 1e-8
-                    )
-                    diff_vis = normalize_frame_vis(diff)
-                    visualize_running_mean_difference(
-                        pframe * 255,
-                        avg_frame * 255,
-                        diff_vis * 255,
-                        idx,
-                        len(running_buffer),
-                    )
+                # if visualize and idx % 100 == 0:
+                #     normalize_frame_vis = lambda x: (x - np.min(x)) / (
+                #         np.max(x) - np.min(x) + 1e-8
+                #     )
+                #     diff_vis = normalize_frame_vis(diff)
+                #     visualize_running_mean_difference(
+                #         pframe * 255,
+                #         avg_frame * 255,
+                #         diff_vis * 255,
+                #         idx,
+                #         len(running_buffer),
+                #     )
 
             results[idx] = {
                 "center_idx": idx,
@@ -297,13 +379,28 @@ def process_running_mean_optimized(
 
 
 def main(
-    video_path,
-    running_mean_N=20,
-    crop_box=None,
-    visualize=False,
-    verbose=False,
-    output_folder=".",
+    video_path: str,
+    running_mean_N: int = 20,
+    crop_box: tuple = None,
+    # visualize: bool = False,
+    verbose: bool = False,
+    output_folder: str = ".",
 ):
+    """
+    Main function to process video frames using running mean background subtraction.
+
+    Args:
+        video_path (str): Path to the input video file.
+        running_mean_N (int): Buffer size for running mean analysis.
+        crop_box (tuple): Optional crop box for frame extraction.
+        visualize (bool): Flag to enable visualization of results. Unnecessary, TBR.
+        verbose (bool): Flag to enable verbose output.
+        output_folder (str): Path to the output folder.
+
+    Returns:
+        pd.DataFrame: DataFrame containing the results of the analysis.
+    """
+
     import pandas as pd
 
     # Extract video name for config file
@@ -318,7 +415,7 @@ def main(
         "video_processing": {
             "video_path": str(video_path),
             "video_name": video_name,
-            "visualize": visualize,
+            # "visualize": visualize,
             "extension": Path(video_path).suffix,
         },
         "preprocessing": {"crop_box": list(crop_box) if crop_box else None},
@@ -355,12 +452,13 @@ def main(
     # RUNNING MEAN BACKGROUND SUBTRACTION
     if verbose:
         print("Computing running mean background subtraction...")
+
     running_mean_results = process_running_mean_optimized(
         decoder,
         num_frames,
         crop_box,
         running_mean_N,
-        visualize=visualize,
+        # visualize=visualize,
         verbose=verbose,
     )
 

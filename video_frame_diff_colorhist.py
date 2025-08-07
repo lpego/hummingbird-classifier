@@ -41,7 +41,19 @@ except ImportError:
 
 
 # ====== PLOT FUNCTIONS ======
-def plot_original_triplet(pframe1, pframe2, pframe3):
+def plot_original_triplet(
+    pframe1: np.ndarray, pframe2: np.ndarray, pframe3: np.ndarray
+) -> None:
+    """
+        Plot the original triplet frames.
+    Args:
+        pframe1 (np.ndarray): Preprocessed frame 1.
+        pframe2 (np.ndarray): Preprocessed frame 2.
+        pframe3 (np.ndarray): Preprocessed frame 3.
+
+    Returns:
+        None
+    """
     fig, axes = plt.subplots(1, 3, figsize=(21, 7))
     axes[0].imshow(pframe1)
     axes[0].set_title("Frame 1")
@@ -57,8 +69,23 @@ def plot_original_triplet(pframe1, pframe2, pframe3):
 
 
 def highlight_high_diff_regions(
-    pframe2, normalized_diff, patch_size, viz_threshold=0.5
-):
+    pframe2: np.ndarray,
+    normalized_diff: np.ndarray,
+    patch_size: tuple,
+    viz_threshold=0.5,
+) -> np.ndarray:
+    """
+        Highlight regions in the frame with high histogram differences.
+
+    Args:
+        pframe2 (np.ndarray): Preprocessed frame 2.
+        normalized_diff (np.ndarray): Normalized histogram differences.
+        patch_size (tuple): Size of the patches (width, height).
+        viz_threshold (float): Threshold for highlighting differences.
+    Returns:
+        np.ndarray: Frame with highlighted regions to be visualised as image.
+
+    """
     high_diff_indices = np.where(normalized_diff > viz_threshold)[0]
     mask = np.zeros_like(pframe2)
 
@@ -85,8 +112,24 @@ def highlight_high_diff_regions(
 
 
 def visualize_histogram_difference_patch_image(
-    pframe1, pframe2, normalized_diff, patch_size, viz_threshold=0.5
-):
+    pframe1: np.ndarray,
+    pframe2: np.ndarray,
+    normalized_diff: np.ndarray,
+    patch_size: tuple,
+    viz_threshold: float = 0.5,
+) -> None:
+    """
+    Visualize histogram differences by coloring patches in the second frame.
+    Args:
+        pframe1 (np.ndarray): Preprocessed frame 1.
+        pframe2 (np.ndarray): Preprocessed frame 2.
+        normalized_diff (np.ndarray): Normalized histogram differences.
+        patch_size (tuple): Size of the patches (width, height).
+        viz_threshold (float): Threshold for highlighting differences.
+    Returns:
+        None
+    """
+
     colored_patches = np.zeros_like(pframe1)
 
     # Calculate the actual number of patches
@@ -131,25 +174,43 @@ def visualize_histogram_difference_patch_image(
 # ====== END PLOT FUNCTIONS ======
 
 
-def blur_frame(frame, ksize=5):
+def blur_frame(frame: np.ndarray, ksize: int = 5) -> np.ndarray:
     """Apply Gaussian blur to the frame."""
     return cv2.GaussianBlur(frame, (ksize, ksize), 0)
 
 
-def crop_frame(frame, crop_box):
+def crop_frame(frame: np.ndarray, crop_box: tuple) -> np.ndarray:
     """Crop the frame to the given box: (x, y, w, h)."""
     x, y, w, h = crop_box
     return frame[y : y + h, x : x + w]
 
 
-def preprocess_frame(frame, reference=None, crop_box=None, blur=False):
-    """Apply normalization, optional standardization, blurring, and cropping."""
+def preprocess_frame(
+    frame: np.ndarray,
+    reference: np.ndarray = None,
+    crop_box: tuple = None,
+    blur: bool = False,
+) -> np.ndarray:
+    """
+    Apply normalization, optional standardization, blurring, and cropping.
+
+    Args:
+        frame (np.ndarray): Input frame to preprocess.
+        reference (np.ndarray, optional): Reference frame for standardization.
+        crop_box (tuple, optional): Crop box as (x, y, w, h).
+        blur (bool, optional): Whether to apply Gaussian blur.
+
+    Returns:
+        np.ndarray: Preprocessed frame.
+    """
     frame = frame.astype(np.float32) / 255.0
     # normalize_frame(frame)
     if reference is not None:
-        standardize_frame = lambda x: (x - np.mean(x)) / (np.std(x) + 1e-8)
         # frame = match_histogram(frame, reference)
-        frame = standardize_frame(frame)
+        frame = (frame - np.mean(reference)) / (np.std(reference) + 1e-8)
+    else:
+        frame = (frame - np.mean(frame)) / (np.std(frame) + 1e-8)
+
     if blur:
         frame = blur_frame(frame)
     if crop_box is not None:
@@ -158,8 +219,29 @@ def preprocess_frame(frame, reference=None, crop_box=None, blur=False):
 
 
 @jit(nopython=True, cache=True, parallel=True)
-def compute_patch_histograms_jit_exact(frame_flat, h, w, c, patch_size, bins):
-    """JIT function that exactly replicates the original compute_patch_histograms logic with optimizations."""
+def compute_patch_histograms_jit_exact(
+    frame_flat: np.ndarray,
+    h: int,
+    w: int,
+    c: int,
+    patch_size: tuple[int, int],
+    bins: int,
+) -> np.ndarray:
+    """
+    JIT function that exactly replicates the original compute_patch_histograms logic with optimizations.
+
+    Args:
+    frame_flat (numpy.ndarray): Flattened frame array of shape (h * w * c,)
+    h (int): Height of the frame
+    w (int): Width of the frame
+    c (int): Number of color channels (e.g., 3 for RGB)
+    patch_size (tuple[int, int]): Size of the patches (height, width)
+    bins (int): Number of histogram bins
+
+    Returns:
+    numpy.ndarray: 2D array of shape (num_patches, bins * c)
+    containing the normalized histograms for each patch.
+    """
     patch_h, patch_w = patch_size
 
     # Calculate number of patches and pre-allocate output
@@ -207,21 +289,19 @@ def compute_patch_histograms_jit_exact(frame_flat, h, w, c, patch_size, bins):
 
 
 @jit(nopython=True, cache=True)
-def compute_histogram_differences_jit(hist1, hist2, hist3, distance_metric="euclidean"):
+def compute_histogram_differences_jit(
+    hist1: np.ndarray, hist2: np.ndarray, hist3: np.ndarray, distance_metric="euclidean"
+) -> np.ndarray:
     """
     JIT-compiled function for fast histogram difference computation.
 
-    Parameters:
-    -----------
-    hist1, hist2, hist3 : numpy.ndarray
-        Histogram arrays for three consecutive frames
-    distance_metric : str
-        Distance metric to use: "euclidean", "wasserstein", or "chi_square"
+    Args:
+    hist1, hist2, hist3 (numpy.ndarray) Histogram arrays for three consecutive frames
+    distance_metric (str): Distance metric to use: "euclidean", "wasserstein", or "chi_square"
 
     Returns:
-    --------
-    numpy.ndarray
-        Combined distance differences between frame pairs
+    result (numpy.ndarray): Combined distance differences between frame pairs
+
     """
     n_patches = hist1.shape[0]
     n_bins = hist1.shape[1]
@@ -308,7 +388,9 @@ def compute_histogram_differences_jit(hist1, hist2, hist3, distance_metric="eucl
     return result
 
 
-def compute_patch_histograms(frame, patch_size=(32, 32), bins=16):
+def compute_patch_histograms(
+    frame: np.ndarray, patch_size: tuple = (32, 32), bins: int = 16
+) -> np.ndarray:
     """Compute binned color histograms for local image patches.
     Only use patches fully contained within the frame.
     """
@@ -328,8 +410,21 @@ def compute_patch_histograms(frame, patch_size=(32, 32), bins=16):
     return np.array(histograms)
 
 
-def compute_patch_histograms_jit_wrapper(frame, patch_size=(32, 32), bins=16):
-    """JIT-optimized wrapper that exactly matches the original function behavior."""
+def compute_patch_histograms_jit_wrapper(
+    frame: np.ndarray, patch_size: tuple = (32, 32), bins: int = 16
+) -> np.ndarray:
+    """
+    JIT-optimized wrapper that exactly matches the original function behavior.
+
+    Args:
+    frame (np.ndarray): Input frame as a 3D numpy array (height, width, channels).
+    patch_size (tuple): Size of the patches (height, width).
+    bins (int): Number of histogram bins.
+
+    Returns:
+    np.ndarray: Array of computed histograms for each patch.
+    """
+
     h, w, c = frame.shape
 
     if NUMBA_AVAILABLE:
@@ -346,17 +441,37 @@ def compute_patch_histograms_jit_wrapper(frame, patch_size=(32, 32), bins=16):
 
 
 def main(
-    video_path,
-    frame_skip=1,
-    crop_box=None,
-    patch_size=(32, 32),
-    bins=8,
-    threshold=None,
-    visualize=False,
-    verbose=False,
-    output_folder=".",
-    distance_metric="euclidean",
-):
+    video_path: str,
+    frame_skip: int = 1,
+    crop_box: tuple = None,
+    patch_size: tuple = (32, 32),
+    bins: int = 8,
+    threshold: float = None,
+    visualize: bool = False,
+    verbose: bool = False,
+    output_folder: str = ".",
+    distance_metric: str = "euclidean",
+) -> pd.DataFrame:
+    """
+    Main function to process a video and compute color histogram differences.
+
+    Args:
+        video_path (str): Path to the input video file.
+        frame_skip (int): Number of frames to skip between triplet analysis.
+        crop_box (tuple): Crop box as (x, y, width, height) for preprocessing.
+        patch_size (tuple): Size of patches for histogram computation.
+        bins (int): Number of histogram bins.
+        threshold (float): Threshold for histogram differences.
+        visualize (bool): Whether to visualize the results.
+        verbose (bool): Whether to print detailed progress information.
+        output_folder (str): Folder to save configuration and results.
+        distance_metric (str): Distance metric for histogram comparison.
+
+        Returns:
+            pd.DataFrame: DataFrame containing the standard deviation of histogram differences for each frame.
+
+    """
+
     # Extract video name for config file
     video_name = Path(video_path).stem
 

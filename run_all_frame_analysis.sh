@@ -23,7 +23,7 @@
 set -e  # Exit on any error
 
 # Default parameters
-OUTPUT_DIR="./results/hummingbird"
+OUTPUT_DIR="./results_test_sanity/hummingbird"
 CROP_BOX=(0 0 1280 700)
 FRAME_SKIP=1
 RUNNING_MEAN_N=20
