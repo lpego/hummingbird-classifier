@@ -12,16 +12,20 @@ Computes precision and recall for each approach and creates comparison plots.
 """
 
 import argparse
+from argparse import Namespace
+
 import pandas as pd
 import numpy as np
 import yaml
 import os
 import matplotlib.pyplot as plt
 
-VERBOSE = True
+global VERBOSE
 
 
-def load_ground_truth(video_name, gt_file="./data/cleaned_ground_truth.csv"):
+def load_ground_truth(
+    video_name: str, gt_file: str = "./data/cleaned_ground_truth.csv"
+) -> tuple:
     """
     Load ground truth data for the specified video. If the CSV changes, the logic here fails
     Gotta double check:
@@ -63,8 +67,10 @@ def load_ground_truth(video_name, gt_file="./data/cleaned_ground_truth.csv"):
 
 
 def load_unsupervised_data(
-    video_name, method="euclidean", results_folder="./results/hummingbird"
-):
+    video_name: str,
+    method: str = "euclidean",
+    results_folder: str = "./results/hummingbird",
+) -> tuple:
     """
     Load processed data for unsupervised approaches.
 
@@ -73,9 +79,9 @@ def load_unsupervised_data(
         method: 'euclidean', 'triplet', 'running_mean', 'combined', 'wasserstein', 'chi_square'
         results_folder: Base folder containing the analysis results
 
-        Returns:
-            df_change: DataFrame with processed change scores
-            config: Configuration dictionary loaded from YAML file (if exists)
+    Returns:
+        df_change: DataFrame with processed change scores
+        config: Configuration dictionary loaded from YAML file (if exists)
     """
 
     # First create filenames to read, then read
@@ -157,11 +163,13 @@ def load_unsupervised_data(
     return df_change, config
 
 
-def compute_aggregated_diff(df_change, method="euclidean"):
+def compute_aggregated_diff(
+    df_change: pd.DataFrame, method: str = "euclidean"
+) -> pd.DataFrame:
     """
     Compute aggregated difference score based on the method, in case a script returns multiple scores.
     Potentially, this should not be used and first go through the score combination script.
-    Right now is basically for renaming columns.
+    Right now is basically for renaming columns and checking consistency
 
     Args:
         df_change: dataframe containing anomaly
@@ -257,7 +265,9 @@ def compute_aggregated_diff(df_change, method="euclidean"):
     return df_change
 
 
-def compute_precision_recall(df_change, positives, k_values, buffer=1):
+def compute_precision_recall(
+    df_change: pd.DataFrame, positives: pd.DataFrame, k_values: list, buffer: int = 1
+) -> pd.DataFrame:
     """
     Compute precision and recall for different k values.
     k defines the number of top frames to consider for precision/recall after sorting the score
@@ -312,7 +322,9 @@ def compute_precision_recall(df_change, positives, k_values, buffer=1):
     return pd.DataFrame(precision_recall_data)
 
 
-def create_precision_recall_plots(precision_recall_df, output_folder, video_name):
+def create_precision_recall_plots(
+    precision_recall_df: pd.DataFrame, output_folder: str, video_name: str
+) -> None:
     """
     Create and save precision-recall comparison plots for unsupervised approaches.
 
@@ -320,6 +332,7 @@ def create_precision_recall_plots(precision_recall_df, output_folder, video_name
         precision_recall_df: DataFrame with precision and recall data for all methods
         output_folder: Folder to save the plots
         video_name: Name of the video
+
     """
 
     # Separate data by method
@@ -759,7 +772,7 @@ def create_precision_recall_plots(precision_recall_df, output_folder, video_name
         print(f"Unsupervised comparison plots saved to: {plot_filename}")
 
 
-def get_available_videos(results_folder="./results/hummingbird"):
+def get_available_videos(results_folder: str = "./results/hummingbird") -> list:
     """
     Get list of available videos based on CSV files in the results folder.
     Uses euclidean folder as the primary source for video discovery.
@@ -791,14 +804,22 @@ def get_available_videos(results_folder="./results/hummingbird"):
     return sorted(list(videos))
 
 
-def process_single_video(video_name, methods_to_run, args):
+def process_single_video(
+    video_name: str,
+    methods_to_run: list,
+    gt_folder: str,
+    results_folder: str,
+    buffer: int,
+) -> pd.DataFrame:
     """
     Process a single video for all specified methods.
 
     Args:
         video_name: Name of the video to process
         methods_to_run: List of methods to run
-        args: Parsed command line arguments
+        gt_folder: Path to the ground truth folder
+        results_folder: Path to the results folder
+        buffer: Buffer size for precision/recall computation (consider +/- buffer frames around ground truth as match)
 
     Returns:
         Combined DataFrame with all results, or None if processing failed
@@ -812,7 +833,7 @@ def process_single_video(video_name, methods_to_run, args):
 
     # Load ground truth (same for all methods)
     try:
-        gt_video, positives, negatives = load_ground_truth(video_name, args.gt_folder)
+        gt_video, positives, negatives = load_ground_truth(video_name, gt_folder)
 
         if VERBOSE:
             print(
@@ -838,7 +859,7 @@ def process_single_video(video_name, methods_to_run, args):
                 print(f"Loading {method} data...")
 
             df_change, config = load_unsupervised_data(
-                video_name, method, args.results_folder
+                video_name, method, results_folder
             )
 
             if VERBOSE:
@@ -864,13 +885,13 @@ def process_single_video(video_name, methods_to_run, args):
 
             # Compute precision and recall
             precision_recall_df = compute_precision_recall(
-                df_change, positives, k_values, args.buffer
+                df_change, positives, k_values, buffer
             )
 
             # Add metadata columns
             precision_recall_df["video_name"] = video_name
             precision_recall_df["method"] = method
-            precision_recall_df["buffer"] = args.buffer
+            precision_recall_df["buffer"] = buffer
             precision_recall_df["total_frames"] = len(df_change)
 
             all_results.append(precision_recall_df)
@@ -913,7 +934,144 @@ def process_single_video(video_name, methods_to_run, args):
     return combined_df
 
 
-def main():
+def main(
+    video_name: str,
+    method: str,
+    buffer: int,
+    output_folder: str,
+    results_folder: str,
+    gt_folder: str,
+    plot: bool,
+) -> int:
+
+    # Create output folder
+    os.makedirs(output_folder, exist_ok=True)
+
+    # Determine which methods to run
+    if "all" in method:
+        methods_to_run = [
+            "euclidean",
+            "triplet",
+            "running_mean",
+            # "combined",
+            "wasserstein",
+            "chi_square",
+        ]
+    else:
+        methods_to_run = method
+
+    # Determine which videos to process
+    if video_name:
+        # Single video specified
+        videos_to_process = [video_name]
+        if VERBOSE:
+            print(f"Processing single video: {video_name}")
+    else:
+        # No video specified - process all available videos
+        videos_to_process = get_available_videos(results_folder)
+        if not videos_to_process:
+            print(f"No videos found in {results_folder}")
+            print("Make sure the results folder contains the expected subfolders:")
+            print("  - euclidean/")
+            print("  - triplet_analysis/")
+            print("  - running_mean/")
+            print("  - wasserstein/")
+            print("  - chi_square/")
+            return 1
+
+        if VERBOSE:
+            print(
+                f"Found {len(videos_to_process)} videos to process: {videos_to_process}"
+            )
+
+    if VERBOSE:
+        print(f"Method(s): {method}")
+        print(f"Buffer: {buffer}")
+        print(f"Output folder: {output_folder}")
+
+    # Process videos
+    all_combined_results = []
+    successful_videos = 0
+    failed_videos = []
+
+    for video_name in videos_to_process:
+        # Process single video
+        video_results = process_single_video(
+            video_name, methods_to_run, gt_folder, results_folder, buffer
+        )
+
+        if video_results is not None:
+            # Save individual video results
+            output_csv = os.path.join(
+                output_folder, f"{video_name}_unsupervised_comparison.csv"
+            )
+            video_results.to_csv(output_csv, index=False)
+
+            if VERBOSE:
+                print(f"Results saved to: {output_csv}")
+
+            # Create plots if requested
+            if plot:
+                if VERBOSE:
+                    print("Creating unsupervised comparison plots...")
+                create_precision_recall_plots(video_results, output_folder, video_name)
+
+            # Add to combined results for summary
+            all_combined_results.append(video_results)
+            successful_videos += 1
+
+            # Print summary for this video
+            if VERBOSE:
+                print(f"\n--- SUMMARY FOR {video_name} ---")
+                for method in video_results["method"].unique():
+                    method_data = video_results[
+                        video_results["method"] == method
+                    ].reset_index(drop=True)
+                    f1_scores = (
+                        2
+                        * (method_data["Precision"] * method_data["Recall"])
+                        / (method_data["Precision"] + method_data["Recall"])
+                    )
+                    f1_scores = f1_scores.fillna(0)
+
+                    if len(f1_scores) > 0 and f1_scores.max() > 0:
+                        best_f1_idx = f1_scores.idxmax()
+                        best_f1_value = f1_scores.iloc[best_f1_idx]
+                        best_k = method_data.iloc[best_f1_idx]["k"]
+                        print(f"  {method}: Best F1 = {best_f1_value:.3f} @ k={best_k}")
+        else:
+            failed_videos.append(video_name)
+
+    # Final summary
+    if VERBOSE:
+        print(f"\n{'='*80}")
+        print(f"PROCESSING COMPLETE")
+        print(f"{'='*80}")
+        print(
+            f"Successfully processed: {successful_videos}/{len(videos_to_process)} videos"
+        )
+
+        if failed_videos:
+            print(f"Failed videos: {failed_videos}")
+
+    if all_combined_results:
+        # Save combined results across all videos
+        if len(videos_to_process) > 1:
+            all_results_df = pd.concat(all_combined_results, ignore_index=True)
+            combined_output_csv = os.path.join(
+                output_folder, "all_videos_unsupervised_comparison.csv"
+            )
+            all_results_df.to_csv(combined_output_csv, index=False)
+            print(f"Combined results for all videos saved to: {combined_output_csv}")
+
+    print(f"Results saved to: {output_folder}")
+
+    return 0 if successful_videos > 0 else 1
+
+
+if __name__ == "__main__":
+
+    # Parse command line arguments
     parser = argparse.ArgumentParser(
         description="Compare unsupervised approaches for hummingbird detection"
     )
@@ -971,133 +1129,16 @@ def main():
 
     args = parser.parse_args()
 
-    global VERBOSE
     VERBOSE = args.verbose
 
-    # Create output folder
-    os.makedirs(args.output_folder, exist_ok=True)
-
-    # Determine which methods to run
-    if "all" in args.method:
-        methods_to_run = [
-            "euclidean",
-            "triplet",
-            "running_mean",
-            # "combined",
-            "wasserstein",
-            "chi_square",
-        ]
-    else:
-        methods_to_run = args.method
-
-    # Determine which videos to process
-    if args.video_name:
-        # Single video specified
-        videos_to_process = [args.video_name]
-        if VERBOSE:
-            print(f"Processing single video: {args.video_name}")
-    else:
-        # No video specified - process all available videos
-        videos_to_process = get_available_videos(args.results_folder)
-        if not videos_to_process:
-            print(f"No videos found in {args.results_folder}")
-            print("Make sure the results folder contains the expected subfolders:")
-            print("  - euclidean/")
-            print("  - triplet_analysis/")
-            print("  - running_mean/")
-            print("  - wasserstein/")
-            print("  - chi_square/")
-            return 1
-
-        if VERBOSE:
-            print(
-                f"Found {len(videos_to_process)} videos to process: {videos_to_process}"
-            )
-
-    if VERBOSE:
-        print(f"Method(s): {args.method}")
-        print(f"Buffer: {args.buffer}")
-        print(f"Output folder: {args.output_folder}")
-
-    # Process videos
-    all_combined_results = []
-    successful_videos = 0
-    failed_videos = []
-
-    for video_name in videos_to_process:
-        # Process single video
-        video_results = process_single_video(video_name, methods_to_run, args)
-
-        if video_results is not None:
-            # Save individual video results
-            output_csv = os.path.join(
-                args.output_folder, f"{video_name}_unsupervised_comparison.csv"
-            )
-            video_results.to_csv(output_csv, index=False)
-
-            if VERBOSE:
-                print(f"Results saved to: {output_csv}")
-
-            # Create plots if requested
-            if args.plot:
-                if VERBOSE:
-                    print("Creating unsupervised comparison plots...")
-                create_precision_recall_plots(
-                    video_results, args.output_folder, video_name
-                )
-
-            # Add to combined results for summary
-            all_combined_results.append(video_results)
-            successful_videos += 1
-
-            # Print summary for this video
-            if VERBOSE:
-                print(f"\n--- SUMMARY FOR {video_name} ---")
-                for method in video_results["method"].unique():
-                    method_data = video_results[
-                        video_results["method"] == method
-                    ].reset_index(drop=True)
-                    f1_scores = (
-                        2
-                        * (method_data["Precision"] * method_data["Recall"])
-                        / (method_data["Precision"] + method_data["Recall"])
-                    )
-                    f1_scores = f1_scores.fillna(0)
-
-                    if len(f1_scores) > 0 and f1_scores.max() > 0:
-                        best_f1_idx = f1_scores.idxmax()
-                        best_f1_value = f1_scores.iloc[best_f1_idx]
-                        best_k = method_data.iloc[best_f1_idx]["k"]
-                        print(f"  {method}: Best F1 = {best_f1_value:.3f} @ k={best_k}")
-        else:
-            failed_videos.append(video_name)
-
-    # Final summary
-    if VERBOSE:
-        print(f"\n{'='*80}")
-        print(f"PROCESSING COMPLETE")
-        print(f"{'='*80}")
-        print(
-            f"Successfully processed: {successful_videos}/{len(videos_to_process)} videos"
+    exit(
+        main(
+            args.video_name,
+            args.method,
+            args.buffer,
+            args.output_folder,
+            args.results_folder,
+            args.gt_folder,
+            args.plot,
         )
-
-        if failed_videos:
-            print(f"Failed videos: {failed_videos}")
-
-    if all_combined_results:
-        # Save combined results across all videos
-        if len(videos_to_process) > 1:
-            all_results_df = pd.concat(all_combined_results, ignore_index=True)
-            combined_output_csv = os.path.join(
-                args.output_folder, "all_videos_unsupervised_comparison.csv"
-            )
-            all_results_df.to_csv(combined_output_csv, index=False)
-            print(f"Combined results for all videos saved to: {combined_output_csv}")
-
-    print(f"Results saved to: {args.output_folder}")
-
-    return 0 if successful_videos > 0 else 1
-
-
-if __name__ == "__main__":
-    exit(main())
+    )
