@@ -4,6 +4,7 @@
 
 from pathlib import Path
 import os, sys
+from typing import Dict, List, Tuple, Union, Optional, Any
 
 import pandas as pd
 import numpy as np
@@ -19,7 +20,26 @@ from tqdm import tqdm
 
 
 # %%
-def just_im_difference(impair, pars):
+def just_im_difference(
+    impair: List[Path], pars: Dict[str, Any]
+) -> Tuple[np.ndarray, np.ndarray]:
+    """
+    Compute image differences for a triplet of consecutive frames.
+
+    Args:
+        impair: List of three Path objects representing consecutive image files
+        pars: Dictionary containing processing parameters:
+            - imsize: int, target image size for resizing
+            - imcrop: tuple, crop coordinates (left, top, right, bottom)
+            - do_filt: bool, whether to apply Gaussian blur
+            - filt_rad: float, radius for Gaussian blur
+            - cnorm: float, normalization constant
+
+    Returns:
+        Tuple of:
+            - dh: np.ndarray, normalized difference array
+            - dm: np.ndarray, magnitude of differences
+    """
     ims = pars["imsize"]
 
     im_0 = Image.open(impair[0]).convert("RGB")
@@ -57,7 +77,29 @@ def just_im_difference(impair, pars):
 
 
 # %%
-def magnitude_score(impair, pars):
+def magnitude_score(
+    impair: List[Path], pars: Dict[str, Any]
+) -> Tuple[str, float, float, float, float]:
+    """
+    Compute magnitude-based change detection scores for a triplet of consecutive frames.
+
+    Args:
+        impair: List of three Path objects representing consecutive image files
+        pars: Dictionary containing processing parameters:
+            - imsize: int, target image size for resizing
+            - imcrop: tuple, crop coordinates (left, top, right, bottom)
+            - do_filt: bool, whether to apply Gaussian blur
+            - filt_rad: float, radius for Gaussian blur
+            - cnorm: float, normalization constant
+
+    Returns:
+        Tuple containing:
+            - filename: str, name of the middle frame
+            - std_dev: float, standard deviation of magnitude differences
+            - euclidean: float, mean squared magnitude
+            - median_deviation: float, mean absolute deviation from median
+            - iqr: float, interquartile range of magnitudes
+    """
     ims = pars["imsize"]
     try:
         im_0 = Image.open(impair[0]).convert("RGB")
@@ -117,7 +159,32 @@ def magnitude_score(impair, pars):
     )
 
 
-def magnitude_score_v2(impair, pars):
+def magnitude_score_v2(
+    impair: List[Path], pars: Dict[str, Any]
+) -> Tuple[str, float, float, float, float]:
+    """
+    Compute magnitude-based change detection scores for a triplet of consecutive frames (version 2).
+
+    This version uses absolute differences instead of raw differences and multichannel=True
+    for histogram matching.
+
+    Args:
+        impair: List of three Path objects representing consecutive image files
+        pars: Dictionary containing processing parameters:
+            - imsize: int, target image size for resizing
+            - imcrop: tuple, crop coordinates (left, top, right, bottom)
+            - do_filt: bool, whether to apply Gaussian blur
+            - filt_rad: float, radius for Gaussian blur
+            - cnorm: float, normalization constant
+
+    Returns:
+        Tuple containing:
+            - filename: str, name of the middle frame
+            - std_dev: float, standard deviation of magnitude differences
+            - euclidean: float, mean squared magnitude
+            - median_deviation: float, mean absolute deviation from median
+            - iqr: float, interquartile range of magnitudes
+    """
     ims = pars["imsize"]
 
     try:
@@ -181,7 +248,27 @@ def magnitude_score_v2(impair, pars):
 
 
 # %% setup parallel pool
-def main_triplet_difference(folder_frames, save_csv=None):
+def main_triplet_difference(
+    folder_frames: Path, save_csv: Optional[str] = None
+) -> pd.DataFrame:
+    """
+    Process all frames in a folder using triplet difference analysis in parallel.
+
+    This function processes consecutive triplets of frames to detect changes using
+    magnitude-based scoring. It uses all available CPU cores for parallel processing.
+
+    Args:
+        folder_frames: Path object pointing to the folder containing frame images
+        save_csv: Optional path to save the results as CSV file
+
+    Returns:
+        pd.DataFrame containing the analysis results with columns:
+            - fname: filename of the middle frame in each triplet
+            - mag_std: standard deviation of magnitude differences
+            - mag_euc: euclidean (mean squared) magnitude
+            - mag_med: median absolute deviation
+            - mag_iqr: interquartile range of magnitudes
+    """
     num_cores = multiprocessing.cpu_count()
     pool = Parallel(n_jobs=num_cores)
     print(f"Parsing triplet difference of {folder_frames} on {num_cores} cores")
