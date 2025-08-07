@@ -713,12 +713,12 @@ def create_precision_recall_plots(precision_recall_df, output_folder, video_name
     # Create legend handles for methods only
     legend_handles = []
     method_labels = {
-        "euclidean": "Color Histogram",
-        "triplet": "Triplet Analysis",
+        "euclidean": "Plain Histogram",
+        "triplet": "Triplet Difference",
         "running_mean": "Running Mean",
         "combined": "Combined Score",
         "wasserstein": "Wasserstein",
-        "chi_square": "Chi-Square ",
+        "chi_square": "Chi-Square",
     }
 
     for method in methods:
