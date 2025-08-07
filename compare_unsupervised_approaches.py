@@ -538,9 +538,9 @@ def create_precision_recall_plots(
             corner_positions = {
                 "euclidean": (0.02, 0.98),  # Top left
                 "triplet": (0.65, 0.98),  # Top right
-                "running_mean": (0.02, 0.83),  # Middle left
-                "wasserstein": (0.65, 0.83),  # Middle right
-                "chi_square": (0.02, 0.68),  # Bottom left
+                "running_mean": (0.02, 0.87),  # Middle left
+                "wasserstein": (0.65, 0.87),  # Middle right
+                "chi_square": (0.65, 0.75),  # Bottom left
             }
             if method in corner_positions:
                 x_pos, y_pos = corner_positions[method]
