@@ -538,8 +538,9 @@ def create_precision_recall_plots(
             corner_positions = {
                 "euclidean": (0.02, 0.98),  # Top left
                 "triplet": (0.65, 0.98),  # Top right
-                "running_mean": (0.02, 0.83),  # Bottom left
-                "combined": (0.65, 0.83),  # Bottom right
+                "running_mean": (0.02, 0.83),  # Middle left
+                "wasserstein": (0.65, 0.83),  # Middle right
+                "chi_square": (0.02, 0.68),  # Bottom left
             }
             if method in corner_positions:
                 x_pos, y_pos = corner_positions[method]
@@ -629,8 +630,8 @@ def create_precision_recall_plots(
         )
         f1_scores = f1_scores.fillna(0)
 
-        # Get precision and recall at k=200 if available
-        kf = 200
+        # Get precision and recall at closest threshold of k=num_positives
+        kf = num_positives
         at_kf_data = method_data[method_data["k"] >= kf]
         prec_at_kf = at_kf_data["Precision"].iloc[0] if len(at_kf_data) > 0 else 0
         recall_at_kf = at_kf_data["Recall"].iloc[0] if len(at_kf_data) > 0 else 0
@@ -726,12 +727,12 @@ def create_precision_recall_plots(
     # Create legend handles for methods only
     legend_handles = []
     method_labels = {
-        "euclidean": "Plain Histogram",
-        "triplet": "Triplet Difference",
+        "euclidean": "Euclidean Histogram Distance",
+        "triplet": "Frame Triplet Difference",
         "running_mean": "Running Mean",
         "combined": "Combined Score",
-        "wasserstein": "Wasserstein",
-        "chi_square": "Chi-Square",
+        "wasserstein": "Wasserstein Distance",
+        "chi_square": "Chi-Square Distance",
     }
 
     for method in methods:
@@ -750,8 +751,8 @@ def create_precision_recall_plots(
     # Create legend in 2x2 grid layout
     legend = legend_ax.legend(
         handles=legend_handles,
-        loc="center",
-        ncol=2,  # 2 columns for 2x2 grid
+        loc="lower left",
+        ncol=3,  # 2 columns for 2x2 grid
         fontsize=12,
         frameon=True,
         fancybox=True,

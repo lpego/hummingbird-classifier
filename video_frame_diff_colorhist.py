@@ -208,8 +208,8 @@ def preprocess_frame(
     if reference is not None:
         # frame = match_histogram(frame, reference)
         frame = (frame - np.mean(reference)) / (np.std(reference) + 1e-8)
-    else:
-        frame = (frame - np.mean(frame)) / (np.std(frame) + 1e-8)
+    # else:
+    # frame = (frame - np.mean(frame)) / (np.std(frame) + 1e-8)
 
     if blur:
         frame = blur_frame(frame)

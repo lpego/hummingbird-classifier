@@ -114,4 +114,4 @@ if __name__ == "__main__":
     )
     args = args.parse_args()
 
-    video_to_frames(args.input_loc, args.output_loc)
+    exit(video_to_frames(args.input_loc, args.output_loc))

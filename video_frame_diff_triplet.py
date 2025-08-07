@@ -142,8 +142,8 @@ def preprocess_frame(
     if reference is not None:
         # frame = match_histogram(frame, reference)
         frame = (frame - np.mean(reference)) / (np.std(reference) + 1e-8)
-    else:
-        frame = (frame - np.mean(frame)) / (np.std(frame) + 1e-8)
+    # else:
+    # frame = (frame - np.mean(frame)) / (np.std(frame) + 1e-8)
 
     if blur:
         frame = blur_frame(frame)
@@ -543,7 +543,7 @@ if __name__ == "__main__":
             video_path,
             frame_skip=frame_skip,
             crop_box=crop_box,
-            visualize=visualize,
+            # visualize=visualize,
             verbose=verbose,
             output_folder=output_folder,
         )

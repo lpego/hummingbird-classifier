@@ -6,8 +6,8 @@
 set -e  # Exit on any error
 
 # Default values
-RESULTS_FOLDER="${1:-./results/hummingbird/}"
-OUTPUT_FOLDER="${2:-./results/hummingbird/precision_recall_results/}"
+RESULTS_FOLDER="${1:-./results_test_sanity/hummingbird/}"
+OUTPUT_FOLDER="${2:-./results_test_sanity/hummingbird/precision_recall_results/}"
 BUFFER="${3:-1}"
 
 # Create output folder if it doesn't exist

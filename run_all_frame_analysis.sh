@@ -238,7 +238,7 @@ echo "============================================"
 echo "ANALYSIS PIPELINE SUMMARY"
 echo "============================================"
 
-if [ "$OVERALL_SUCCESS" = true ]; then
+if [ "$OVERALL_SUCCESS" = true ]; then``
     print_success "All analyses completed successfully!"
     echo ""
     print_status "Results saved to:"
