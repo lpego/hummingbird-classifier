@@ -6,9 +6,10 @@ from pathlib import Path
 # from src.utils import cfg_to_arguments
 
 
-def convert_videos(video_path, output_path):
+def convert_videos(video_path: Path, output_path: Path) -> None:
     """
     Convert all AVI videos to MP4 using ffmpeg, so that they can be read by OpenCV efficiently.
+    Note to future: use torchcoded.decoders.VideoReader for more efficient reading of videos, without the need for conversion and extracting single frames.
     """
     video_list = list(video_path.glob("**/*.AVI"))
     video_list = sorted(video_list)[:1]
@@ -49,23 +50,4 @@ if __name__ == "__main__":
     recoded_video_path.mkdir(exist_ok=True, parents=True)
 
     # config = cfg_to_arguments(args.config)
-    convert_videos(original_video_path, recoded_video_path)
-
-
-# %% Recode using ffmpeg coded
-
-# for v, video in enumerate(avi_video_list):
-#     print(f"video {v+1}/{len(avi_video_list)}, in: {video}")
-
-#     video_out = recoded_video_path / (video.name.split(".")[0] + ".avi")
-#     cmd = [
-#         "ffmpeg",
-#         "-i",
-#         str(video),
-#         "-vcodec",
-#         "copy",
-#         "-acodec",
-#         "copy",
-#         str(video_out),
-#     ]
-#     subprocess.run(cmd, check=True)
+    exit(convert_videos(original_video_path, recoded_video_path))

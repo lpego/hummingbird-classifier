@@ -18,11 +18,9 @@ from src.utils import (
     cfg_to_arguments,
 )
 
-# %%
-
 
 # %%
-def precision(predictions, gt):
+def precision(predictions: np.ndarray, gt: np.ndarray) -> float:
     """
     Computes precision given a list of predictions
 
@@ -42,7 +40,7 @@ def precision(predictions, gt):
     return sum(predictions == gt) / sum(predictions)
 
 
-def recall(predictions, gt):
+def recall(predictions: np.ndarray, gt: np.ndarray) -> float:
     """
     Computes recall given a list of predictions
 
@@ -63,7 +61,7 @@ def recall(predictions, gt):
 
 
 # %%
-def per_video_assessment(score_file, top_k, config):
+def per_video_assessment(score_file: Path, top_k: list, config: dict) -> None:
     """
     This function runs the assessment of the hummingbird detection pipeline for a given video.
     - Sorts scores by descending order, from most likely to contain a hummingbird to least likely
@@ -171,7 +169,7 @@ def per_video_assessment(score_file, top_k, config):
 
 
 # %%
-def aggregate_assessments(video_metrics, config):
+def aggregate_assessments(video_metrics_list: list[Path], config: dict) -> None:
     """
     This function aggregates the results of the per-video assessment into a single json file
     - Reads the metrics json files for each video
@@ -180,7 +178,7 @@ def aggregate_assessments(video_metrics, config):
 
     Parameters
     ----------
-    video_metrics : list[Path]
+    video_metrics_list : list[Path]
         List of paths to the video metrics json files
     config : dict
         Configuration dictionary
@@ -282,14 +280,14 @@ def aggregate_assessments(video_metrics, config):
             temp_scores[score_name]["f1"], axis=0
         ).tolist()
         agg_metrics[score_name]["f1"]["all"] = temp_scores[score_name]["f1"].tolist()
-    save_path = Path(args.results_path) / "_aggregated_metrics.json"
+    save_path = Path(config.results_path) / "_aggregated_metrics.json"
 
     with open(save_path, "w") as f:
         json.dump(agg_metrics, f, indent=4)
 
 
 # %%
-def plot_aggregated_metrics(results_path, config):
+def plot_aggregated_metrics(results_path: Path) -> None:
     """
     This function plots the aggregated metrics for a given model
     - Reads the aggregated metrics json file

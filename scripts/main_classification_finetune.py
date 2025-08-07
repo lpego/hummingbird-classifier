@@ -27,7 +27,7 @@ os.environ["MKL_THREADING_LAYER"] = "GNU"
 
 
 # %%
-def main(args, cfg):
+def main(args: argparse.Namespace, cfg: dict):
     """
     Function to train a model for classification of macrozoobenthos images.
     The model is trained on the dataset specified in the config file, saved to the folder specified every 50 steps and at the end of the training.
@@ -129,7 +129,7 @@ def main(args, cfg):
         ),  # TODO: check how to use in notebook
         callbacks=cbacks,
         logger=logger,
-        log_every_n_steps=1
+        log_every_n_steps=1,
         # profiler="simple",
     )
 
@@ -176,6 +176,6 @@ if __name__ == "__main__":
     torch.manual_seed(cfg.glob_random_seed)  # needed for torchvision 0.7
     torch.cuda.manual_seed(cfg.glob_random_seed)  # needed for torchvision 0.7
 
-    sys.exit(main(args, cfg))
+    exit(main(args, cfg))
 
 # %%

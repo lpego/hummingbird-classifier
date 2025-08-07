@@ -22,7 +22,9 @@ os.environ["MKL_THREADING_LAYER"] = "GNU"
 torch.hub.set_dir("././models/hub/")
 
 
-def per_video_frame_inference(video_folder, args, config):
+def per_video_frame_inference(
+    video_folder: Path, args: argparse.Namespace, config: dict
+) -> None:
     """
     Predict scores for frame of a given video
 

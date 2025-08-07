@@ -20,7 +20,7 @@ from src.utils import cfg_to_arguments
 
 
 # %%
-def transform_path_to_name(fpath):
+def transform_path_to_name(fpath: Path) -> str:
     """
     transforms the PosixPath path of a frame in the dropbox dump in a comprehensive filename.
     """
@@ -29,7 +29,7 @@ def transform_path_to_name(fpath):
     return fname
 
 
-def extract_frames_from_video(save_fold, video, ntot):
+def extract_frames_from_video(save_fold: Path, video: Path, ntot: int) -> None:
     """
     function to extract frames with frequency `FREQ` (type: int) from the video at path `video` (type: PosixPath), and save frames as jpg at path `save_fold` (type: PosixPath).
     """
@@ -55,11 +55,12 @@ def extract_frames_from_video(save_fold, video, ntot):
     cap.release()
 
 
-def prepare_sets(vid_parsing_pars, videos, config):
+def prepare_sets(vid_parsing_pars: dict, videos: list, config: dict) -> None:
     """
     function to extract frames with frequency `FREQ` (type: int) from the video at path `video` (type: PosixPath), and save frames as jpg at path `save_fold` (type: PosixPath).
     """
-    # %% Prepare positive frames
+
+    # Prepare positive frames
     # Split frames according to their geo location.
     # i) read Interactions_corrected.csv and filter by "file_exists == True"
     # ii) group data by "waypoint", but could also be "site"
@@ -77,9 +78,15 @@ def prepare_sets(vid_parsing_pars, videos, config):
 
     perc_counts = np.cumsum(counts) / np.sum(counts)
 
-    trv = sites[perc_counts < 0.6]
-    vav = sites[(perc_counts >= 0.6) & ((perc_counts < 0.8))]
-    tsv = sites[perc_counts > 0.8]
+    perc_trn = config.positive_still_frames_train_prop
+    perc_val = (
+        config.positive_still_frames_val_prop + config.positive_still_frames_train_prop
+    )
+    perc_tst = config.positive_still_frames_test_prop + perc_val
+
+    trv = sites[perc_counts < perc_trn]
+    vav = sites[(perc_counts >= perc_val) & ((perc_counts < perc_tst))]
+    tsv = sites[perc_counts > perc_tst]
 
     stills_learn_set = {
         "trn": {
@@ -142,9 +149,9 @@ def prepare_sets(vid_parsing_pars, videos, config):
 
     # Prepare Negatives as random frames from videos
     trs, vas, tss = (
-        int(0.6 * len(videos)),
-        int(0.2 * len(videos)),
-        int(0.2 * len(videos)),
+        int(config.negatives_trn_prop * len(videos)),
+        int(config.negatives_val_prop * len(videos)),
+        int(config.negatives_tst_prop * len(videos)),
     )
 
     np.random.seed(config.glob_random_seed)
@@ -244,18 +251,6 @@ def prepare_sets(vid_parsing_pars, videos, config):
                     save_fold, video, vids_learn_set[l_set]["n_per_neg_vid"]
                 )
 
-    # root = Path("/data/shared/hummingbird-classifier/data")
-    # paths = ["trn_set", "val_set", "tst_set"]
-
-    # for subd in ["positive_data_subfolder", "negative_data_subfolder"]:
-    #     for fold in paths:
-    #         fdir = root / vid_parsing_pars[subd] / fold
-    #         for class_dir in fdir.iterdir():
-    #             n_files = len(list(class_dir.glob("*.jpg")))
-    #             print(
-    #                 f"{root}, {vid_parsing_pars[subd] / fold}, {class_dir.name}, {n_files}"
-    #             )
-
 
 if __name__ == "__main__":
     args = argparse.ArgumentParser()
@@ -285,6 +280,13 @@ if __name__ == "__main__":
     # FREQ = 75  # for all
     ## MORE NEGATIVES (2x)
 
+    config.negatives_data_train_prop = 0.6
+    config.negatives_data_val_prop = 0.2
+    config.negatives_data_test_prop = 0.2
+
+    config.positive_still_frames_train_prop = 0.6
+    config.positive_still_frames_val_prop = 0.2
+    config.positive_still_frames_test_prop = 0.2
     # change to absolute folders, e.g.:
     # positive and negative folders can be different for positives and negatives, but does not look like a good idea
     # Will need to be changed accordingly in the HummingbirdModel class
@@ -301,4 +303,4 @@ if __name__ == "__main__":
     current_vid_root = Path(config.data_current_video_root)
     video_list = sorted(list(current_vid_root.glob("RECODED_HummingbirdVideo*/*.avi")))
 
-    prepare_sets(vid_parsing_pars, video_list, config)
+    exit(prepare_sets(vid_parsing_pars, video_list, config))
