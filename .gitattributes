@@ -1,0 +1,14 @@
+### Specifying end-of-line handling
+# Force appropriate EOL for Linux and WIndows specific files
+*.sh     eol=lf
+*.bat    eol=crlf
+# Let Git decide for these files
+*.txt    text=auto
+*.py     text=auto
+*.ipynb  text=auto
+*.csv    text=auto
+# Images should be left alone
+*.png    binary
+*.jpg    binary
+*.jpeg   binary
+*.svg    binary
