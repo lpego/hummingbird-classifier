@@ -1,5 +1,4 @@
 [![ReadTheDocs status](https://readthedocs.org/projects/hummingbird-classifier/badge/?version=latest)](https://hummingbird-classifier.readthedocs.io/en/latest/?badge=latest)
-![GitLab Docker build](https://gitlab.renkulab.io/biodetect/hummingbird-classifier/badges/master/pipeline.svg)
 
 # What is hummingbird-classifier? 
 `hummingbird-classifier` is a Deep Learning image processing pipeline for detecting hummingbirds visiting a focal plant. 
@@ -25,7 +24,9 @@ Overview of hummingbird-classifier v1.0
     - Docker Engine: https://www.docker.com/get-started/
     - git: https://git-scm.com/book/en/v2/Getting-Started-Installing-Git
 
-To function, `hummingbird-classifier` requires three main components: this repository (with all the code to run the various modules), the models (available [here](https://gitlab.renkulab.io/biodetect/hummingbird-classifier-models/)), and images or videos (provided by the user, alternatively demo dataset can be downloaded [here](https://gitlab.renkulab.io/biodetect/hummingbird-classifier-models/-/archive/main/hummingbird-classifier-models-main.zip?path=data/demo)).
+To function, `hummingbird-classifier` requires three main components: this repository (with all the code to run the various modules), the models, and images or videos (provided by the user, alternatively we provide a demo dataset). 
+
+You can download the demo data and the smallest model [here](https://drive.google.com/file/d/1KWaAEvdTckdlPAlN-YcgULySAQoi0unG/view?usp=drive_link); for all the models checkpoints please see the Zenodo archive [here](link-TBD). 
 
 1. Clone repo:
 ``` bash
