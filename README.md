@@ -26,7 +26,7 @@ Overview of hummingbird-classifier v1.0
 
 To function, `hummingbird-classifier` requires three main components: this repository (with all the code to run the various modules), the models, and images or videos (provided by the user, alternatively we provide a demo dataset). 
 
-You can download the demo data and the smallest model [here](https://drive.google.com/file/d/1KWaAEvdTckdlPAlN-YcgULySAQoi0unG/view?usp=drive_link); for all the models checkpoints please see the Zenodo archive [here](link-TBD). 
+You can download the demo data and the smallest model [here](https://drive.google.com/file/d/1KWaAEvdTckdlPAlN-YcgULySAQoi0unG/view?usp=drive_link); for all the models checkpoints please see the Zenodo archive [here](https://zenodo.org/records/18232453). 
 
 1. Clone repo:
 ``` bash
