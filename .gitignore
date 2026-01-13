@@ -3,6 +3,7 @@
 
 ### Custom ignores ###
 ### dev stuff
+.renku/
 .vscode/
 lostandfound/ 
 docs/build/
@@ -32,8 +33,9 @@ data/*/*
 data/*/*/*
 !data/demo
 ### ignore models checkpoints
-models/hub
+models/*
 *.pth
+*.ckpt
 
 ### Emacs ###
 # -*- mode: gitignore; -*-
