@@ -33,7 +33,7 @@ data/*/*
 data/*/*/*
 !data/demo
 ### ignore models checkpoints
-models/*
+models/hub
 *.pth
 *.ckpt
 
